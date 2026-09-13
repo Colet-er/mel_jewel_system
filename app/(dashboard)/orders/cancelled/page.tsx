@@ -1,5 +1,11 @@
-﻿import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+﻿import { StatusOrdersView } from "@/components/orders/status-orders-view";
 
-export default function Page() {
-  return <ModulePlaceholder title="Cancelled Orders" description="Cancelled order history is built in Phase 3." />;
+export const metadata = { title: "Cancelled Orders" };
+
+export default function CancelledOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return <StatusOrdersView kind="cancelled" searchParams={searchParams} />;
 }

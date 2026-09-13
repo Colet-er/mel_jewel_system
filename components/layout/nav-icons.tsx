@@ -2,12 +2,18 @@
 
 import {
   BadgeCheck,
+  CheckCircle2,
   Clock,
+  CreditCard,
+  DollarSign,
   FileText,
+  Gem,
   LayoutDashboard,
   Package,
   PlusCircle,
+  RotateCcw,
   Settings,
+  ShoppingBag,
   ShoppingCart,
   Tags,
   TrendingUp,
@@ -31,6 +37,12 @@ const ICONS: Record<string, LucideIcon> = {
   "trending-up": TrendingUp,
   "file-text": FileText,
   settings: Settings,
+  "check-circle-2": CheckCircle2,
+  "rotate-ccw": RotateCcw,
+  gem: Gem,
+  "shopping-bag": ShoppingBag,
+  "credit-card": CreditCard,
+  "dollar-sign": DollarSign,
 };
 
 export function NavIcon({ name, className }: { name: string; className?: string }) {

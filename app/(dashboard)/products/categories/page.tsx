@@ -1,5 +1,5 @@
-﻿import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+﻿import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <ModulePlaceholder title="Categories" description="Category management is built in Phase 2." />;
+export default function CategoriesRedirectPage() {
+  redirect("/categories");
 }

@@ -12,7 +12,7 @@ export default function LoginPage() {
         <div className="mb-8 flex justify-center">
           <LoginBrand />
         </div>
-        <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
+        <div className="rounded-xl border border-white/[0.07] bg-card p-6 sm:p-8">
           <h1 className="mb-1 text-lg font-semibold text-foreground">Sign in</h1>
           <p className="mb-6 text-sm text-muted">
             Enter your credentials to access the dashboard.

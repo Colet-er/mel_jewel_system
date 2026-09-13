@@ -15,7 +15,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-sidebar lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/5 bg-sidebar/95 shadow-[12px_0_40px_rgba(0,0,0,0.16)] backdrop-blur-xl lg:flex">
         <Brand />
         <SidebarNav />
         <SidebarFooter />
@@ -26,7 +26,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         role="presentation"
         onClick={onCloseMobile}
         className={cn(
-          "fixed inset-0 z-40 bg-black/60 transition-opacity lg:hidden",
+          "fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 lg:hidden",
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       />
@@ -36,7 +36,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         aria-label="Main navigation"
         aria-hidden={!mobileOpen}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-border bg-sidebar transition-transform duration-200 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-white/5 bg-sidebar shadow-2xl transition-transform duration-300 ease-out lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -60,10 +60,10 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
 function SidebarFooter() {
   return (
-    <div className="border-t border-border p-4">
+    <div className="border-t border-white/5 p-4">
       <Link
         href="/settings"
-        className="block text-xs text-muted transition-colors hover:text-pink-light"
+        className="block rounded-lg px-2 py-1.5 text-xs text-muted transition-colors hover:bg-white/[0.03] hover:text-pink-light"
       >
         Order Management System
       </Link>

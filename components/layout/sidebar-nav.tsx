@@ -9,9 +9,10 @@ import { NavIcon } from "./nav-icons";
 import { cn } from "@/lib/utils/cn";
 
 function isActive(pathname: string, href: string): boolean {
+  // "All Orders" is active only on the exact list page; status sub-pages
+  // highlight their own entry.
   if (href === "/orders") {
-    // "All Orders" is active only for the exact list page, not status sub-pages.
-    return pathname === "/orders" || (pathname.startsWith("/orders/") && pathname.split("/").length === 3 && pathname !== "/orders/new");
+    return pathname === "/orders";
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -24,7 +25,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Main navigation" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+    <nav aria-label="Main navigation" className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
       {NAV_GROUPS.map((group, groupIndex) => (
         <NavGroupSection key={group.label ?? `group-${groupIndex}`} label={group.label}>
           {group.items.map((item) => (
@@ -88,13 +89,13 @@ function NavLink({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
         active
-          ? "bg-primary/15 text-pink-light"
-          : "text-muted hover:bg-elevated hover:text-foreground"
+          ? "bg-gradient-to-r from-primary/20 to-primary/5 text-pink-light shadow-[inset_0_0_0_1px_rgba(255,61,141,0.12)]"
+          : "text-muted hover:bg-white/[0.04] hover:text-foreground"
       )}
     >
-      <NavIcon name={item.icon} className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+      <NavIcon name={item.icon} className={cn("h-4 w-4 shrink-0 transition-colors group-hover:text-pink-light", active && "text-primary")} />
       {item.label}
     </Link>
   );

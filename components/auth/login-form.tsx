@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Package } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
@@ -118,14 +118,16 @@ export function LoginForm() {
 
 export function LoginBrand() {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white">
-        <Package className="h-5 w-5" aria-hidden />
-      </div>
-      <div className="leading-tight">
-        <p className="text-base font-bold tracking-wide text-foreground">COMPANY NAME</p>
-        <p className="text-xs text-muted">Order Management</p>
-      </div>
+    <div className="flex flex-col items-center gap-3 text-center">
+      <Image
+        src="/daily-pearls-ph.jpg"
+        alt="Daily Pearls Ph"
+        width={1024}
+        height={1024}
+        priority
+        className="h-36 w-36 rounded-3xl object-cover shadow-[0_16px_45px_rgba(255,61,141,0.18)] ring-1 ring-white/10 sm:h-40 sm:w-40"
+      />
+      <p className="text-sm font-medium tracking-wide text-muted">Order Management</p>
     </div>
   );
 }

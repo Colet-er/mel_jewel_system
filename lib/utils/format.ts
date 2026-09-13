@@ -22,3 +22,36 @@ export function formatDateTime(date: string | Date): string {
     minute: "2-digit",
   }).format(new Date(date));
 }
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export function monthName(month: number): string {
+  return MONTH_NAMES[Math.min(Math.max(month, 1), 12) - 1];
+}
+
+const RESERVATION_TYPE_LABELS: Record<string, string> = {
+  regular: "Regular",
+  pasabuy: "Pasabuy",
+  cod: "COD",
+};
+
+/** Human label for an order's reservation type (regular/pasabuy/cod). */
+export function formatReservationType(
+  type: string | null | undefined
+): string {
+  if (!type) return "Regular";
+  return RESERVATION_TYPE_LABELS[type] ?? type;
+}

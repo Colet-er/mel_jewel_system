@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0d0d10;
-  --color-sidebar: #141418;
-  --color-card: #19191f;
-  --color-elevated: #222229;
+  --color-background: #16161d;
+  --color-sidebar: #1a1a22;
+  --color-card: #1f1f28;
+  --color-elevated: #292934;
   --color-primary: #ff3d8d;
   --color-primary-hover: #e63580;
   --color-pink-light: #ff80b5;
   --color-pink-soft: #f8b4d0;
-  --color-foreground: #f8f8fa;
-  --color-muted: #a7a7b2;
-  --color-border: #303038;
+  --color-foreground: #f6f6f9;
+  --color-muted: #a9a9b6;
+  --color-border: #34343f;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
@@ -21,8 +21,15 @@
 }
 
 body {
-  background-color: var(--color-background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 85% -10%, rgba(255, 61, 141, 0.09), transparent 30rem),
+    radial-gradient(circle at 15% 110%, rgba(255, 128, 181, 0.05), transparent 34rem),
+    var(--color-background);
   color: var(--color-foreground);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -31,6 +38,18 @@ body {
 
 ::selection {
   background-color: rgba(255, 61, 141, 0.35);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+select {
+  color-scheme: dark;
 }
 
 input:focus-visible,
@@ -50,9 +69,57 @@ a:focus-visible {
   background: var(--color-background);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 6px;
+  border: 3px solid var(--color-background);
+  background: #494955;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3d3d46;
+  background: #43434f;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #invoice-document,
+  #invoice-document * {
+    visibility: visible;
+  }
+
+  #invoice-document {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: #ffffff;
+    color: #18181b;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  #invoice-document .text-foreground {
+    color: #18181b;
+  }
+
+  #invoice-document .text-muted {
+    color: #5f5f69;
+  }
+
+  #invoice-document .text-pink-light {
+    color: #b51f60;
+  }
+
+  .invoice-actions {
+    display: none !important;
+  }
 }

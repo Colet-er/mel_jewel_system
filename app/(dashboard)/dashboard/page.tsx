@@ -1,114 +1,273 @@
 import Link from "next/link";
 import {
-  BadgeCheck,
+  Ban,
+  CheckCircle2,
   Clock,
-  FileText,
-  Package,
-  ShoppingCart,
-  TrendingUp,
+  Gem,
+  PackageCheck,
   Truck,
-  Users,
+  Wallet,
 } from "lucide-react";
-import { getCurrentProfile } from "@/lib/supabase/auth";
+import type { ReactNode } from "react";
+import type { Order } from "@/types";
+import {
+  computeTotals,
+  describeDbError,
+  fetchAvailableStock,
+  fetchOrderStatusCounts,
+  fetchOrders,
+  fetchPendingDownpaymentOrders,
+  settledDownpayment,
+} from "@/lib/supabase/queries";
+import { formatDateTime } from "@/lib/utils/format";
+import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { StatCard } from "@/components/ui/stat-card";
 
-const MODULE_LINKS = [
-  { href: "/orders", label: "Orders", description: "Track and manage all orders", icon: ShoppingCart },
-  { href: "/customers", label: "Customers", description: "Customer directory and history", icon: Users },
-  { href: "/products", label: "Products", description: "Product catalog and categories", icon: Package },
-  { href: "/reports", label: "Reports", description: "Sales and performance insights", icon: TrendingUp },
+const MAX_TABLE_ROWS = 8;
+
+interface DownpaymentRow {
+  order: Order;
+  index: number;
+  category: string | null;
+}
+
+const COLUMNS: Column<DownpaymentRow>[] = [
+  {
+    key: "no",
+    header: "No.",
+    className: "w-14",
+    render: (row) => <span className="text-muted">{row.index}</span>,
+  },
+  {
+    key: "date_time",
+    header: "Date & Time",
+    render: (row) => formatDateTime(row.order.created_at),
+  },
+  {
+    key: "customer_name",
+    header: "Customer Name",
+    render: (row) => row.order.customer?.name ?? <span className="text-muted">—</span>,
+  },
+  {
+    key: "category",
+    header: "Category",
+    render: (row) => row.category ?? <span className="text-muted">—</span>,
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (row) => <DownpaymentBadge order={row.order} />,
+  },
+  {
+    key: "action",
+    header: "Action",
+    render: (row) => (
+      <Link
+        href={`/orders/${row.order.id}`}
+        className="text-sm font-medium text-pink-light hover:underline"
+      >
+        View Order
+      </Link>
+    ),
+  },
 ];
 
-export default async function DashboardPage() {
-  const { profile } = await getCurrentProfile();
-  const firstName = profile.full_name?.split(" ")[0] ?? "there";
-
+function DownpaymentBadge({ order }: { order: Order }) {
+  const paid = settledDownpayment(order);
+  const label = paid <= 0 ? "Pending" : "Partial";
+  const className =
+    paid <= 0
+      ? "border-warning/30 bg-warning/10 text-warning"
+      : "border-primary/30 bg-primary/10 text-pink-light";
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={`Welcome back, ${firstName}`}
-        description="Here is an overview of your business."
-      />
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
 
-      {/* Summary cards — populated with live order metrics in Phase 3 */}
-      <section aria-label="Order summary">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard label="Total Orders" value="—" icon={ShoppingCart} />
-          <SummaryCard label="Reserved" value="—" icon={Clock} />
-          <SummaryCard label="Paid" value="—" icon={BadgeCheck} />
-          <SummaryCard label="Shipped" value="—" icon={Truck} />
-          <SummaryCard label="Cancelled" value="—" icon={FileText} />
-        </div>
-      </section>
+function buildRows(orders: Order[]): DownpaymentRow[] {
+  return orders.slice(0, MAX_TABLE_ROWS).map((order, i) => ({
+    order,
+    index: i + 1,
+    category: order.items?.[0]?.product?.category?.name ?? null,
+  }));
+}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-            <CardDescription>Latest activity across your store.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <EmptyState
-              title="No orders yet"
-              description="Once orders are created, the most recent ones will appear here."
-            />
-          </CardContent>
-        </Card>
+function Unavailable() {
+  return <span className="text-muted">—</span>;
+}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Financial Summary</CardTitle>
-            <CardDescription>Revenue, payments, and outstanding balances.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <EmptyState
-              title="No financial data yet"
-              description="Financial metrics will appear after orders and payments are recorded."
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      <section aria-label="Modules">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">Modules</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {MODULE_LINKS.map(({ href, label, description, icon: Icon }) => (
-            <Link key={href} href={href} className="group">
-              <Card className="h-full transition-colors group-hover:border-primary/50">
-                <CardContent className="pt-5">
-                  <Icon className="h-5 w-5 text-primary" aria-hidden />
-                  <p className="mt-3 text-sm font-semibold text-foreground">{label}</p>
-                  <p className="mt-1 text-xs text-muted">{description}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
+function MetricRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string | number | null;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-3 last:border-0">
+      <span className="flex min-w-0 items-center gap-2.5 text-sm text-muted">
+        <span className="shrink-0 text-primary [&>svg]:h-4 [&>svg]:w-4" aria-hidden>
+          {icon}
+        </span>
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="shrink-0 text-sm font-semibold text-foreground">
+        {value === null ? <Unavailable /> : value}
+      </span>
     </div>
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ComponentType<{ className?: string; "aria-hidden": boolean }>;
-}) {
+export default async function DashboardPage() {
+  let dbError: { title: string; description: string } | null = null;
+
+  let statusCounts: {
+    reserved: number | null;
+    paid: number | null;
+    shipped: number | null;
+    cancelled: number | null;
+  } = { reserved: null, paid: null, shipped: null, cancelled: null };
+  let pendingRows: DownpaymentRow[] = [];
+  let pendingCount = 0;
+  let soldThisMonth: number | null = null;
+  let availableStock: number | null = null;
+
+  try {
+    const [counts, pending] = await Promise.all([
+      fetchOrderStatusCounts(),
+      fetchPendingDownpaymentOrders(),
+    ]);
+    statusCounts = counts;
+    pendingCount = pending.length;
+    pendingRows = buildRows(pending);
+
+    const now = new Date();
+    const monthOrders = await fetchOrders({
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+    });
+    soldThisMonth = computeTotals(monthOrders).itemsSold;
+
+    availableStock = await fetchAvailableStock();
+  } catch (error) {
+    dbError = describeDbError(error);
+  }
+
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between pt-5">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p>
-          <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
+    <div className="space-y-6">
+      <PageHeader title="Dashboard" description="Overview of orders and stock." />
+
+      {dbError ? (
+        <ErrorState title={dbError.title} description={dbError.description} />
+      ) : null}
+
+      {/* Summary cards */}
+      <section aria-label="Summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Active Reservations"
+          value={statusCounts.reserved?.toLocaleString("en-US") ?? null}
+          hint={`${pendingCount} with pending downpayment`}
+          icon={<Clock className="h-5 w-5" aria-hidden />}
+          href="/orders/reserved"
+        />
+        <StatCard
+          label="Pasabuy Pending"
+          value={null}
+          icon={<PackageCheck className="h-5 w-5" aria-hidden />}
+        />
+        <StatCard
+          label="Fully Paid"
+          value={statusCounts.paid?.toLocaleString("en-US") ?? null}
+          icon={<CheckCircle2 className="h-5 w-5" aria-hidden />}
+          href="/orders/paid"
+        />
+        <StatCard
+          label="Cancelled"
+          value={statusCounts.cancelled?.toLocaleString("en-US") ?? null}
+          icon={<Ban className="h-5 w-5" aria-hidden />}
+          href="/orders/cancelled"
+        />
+      </section>
+
+      {/* No downpayment table */}
+      <Card>
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">No Downpayment</h2>
+            <p className="text-sm text-muted">Orders with unsettled downpayment.</p>
+          </div>
+          <Link
+            href="/orders/reserved"
+            className="shrink-0 text-sm font-medium text-pink-light hover:underline"
+          >
+            See All
+          </Link>
         </div>
-        <Icon className="h-5 w-5 text-muted" aria-hidden />
-      </CardContent>
-    </Card>
+        <CardContent className="px-0 pb-0">
+          <DataTable
+            columns={COLUMNS}
+            rows={pendingRows}
+            rowKey={(row) => `${row.order.id}:${row.index}`}
+            empty={
+              <EmptyState
+                icon={<Clock className="h-8 w-8" aria-hidden />}
+                title="No pending downpayments."
+                description="Every open order has its required downpayment fully settled."
+              />
+            }
+          />
+        </CardContent>
+      </Card>
+
+      {/* Bottom sections */}
+      <section
+        aria-label="Pasabuy and stock"
+        className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+      >
+        <Card>
+          <div className="px-5 pt-5 pb-1">
+            <h2 className="text-sm font-semibold text-foreground">Pasabuy &amp; Commissions</h2>
+          </div>
+          <CardContent className="pt-2">
+            <MetricRow
+              icon={<Truck />}
+              label="Pre-orders in Transit"
+              value={statusCounts.shipped}
+            />
+            <MetricRow icon={<PackageCheck />} label="Top Sales Channel" value={null} />
+            <MetricRow icon={<Wallet />} label="Unpaid Commissions" value={null} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-1">
+            <h2 className="text-sm font-semibold text-foreground">Moissanite Stock</h2>
+            <Gem className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          </div>
+          <CardContent className="pt-2">
+            <MetricRow
+              icon={<Gem />}
+              label="Available Stone"
+              value={availableStock === null ? null : availableStock.toLocaleString("en-US")}
+            />
+            <MetricRow
+              icon={<PackageCheck />}
+              label="Sold This Month"
+              value={soldThisMonth === null ? null : soldThisMonth.toLocaleString("en-US")}
+            />
+          </CardContent>
+        </Card>
+      </section>
+    </div>
   );
 }

@@ -2,7 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicEnv } from "@/lib/supabase/env";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/orders", "/customers", "/products", "/reports", "/settings"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/orders",
+  "/customers",
+  "/products",
+  "/categories",
+  "/reports",
+  "/settings",
+];
 
 export async function proxy(request: NextRequest) {
   const env = getPublicEnv();

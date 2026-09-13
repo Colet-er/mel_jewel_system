@@ -26,7 +26,7 @@ export function Topbar({ email, fullName, role, onOpenMobileNav }: TopbarProps) 
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between gap-4 border-b border-white/5 bg-background/80 px-4 shadow-[0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-xl sm:px-6 lg:px-10">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -36,12 +36,16 @@ export function Topbar({ email, fullName, role, onOpenMobileNav }: TopbarProps) 
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
+        <div className="hidden lg:block">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">Daily Pearls PH</p>
+          <p className="mt-0.5 text-sm font-medium text-foreground">Operations workspace</p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="hidden text-right leading-tight sm:block">
-          <p className="text-sm font-medium text-foreground">{fullName || email}</p>
-          <p className="text-xs text-muted">{email}</p>
+      <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/5 bg-card/50 px-2 py-1.5">
+        <div className="hidden min-w-0 max-w-[46vw] text-right leading-tight sm:block">
+          <p className="truncate text-sm font-medium text-foreground">{fullName || email}</p>
+          <p className="truncate text-xs text-muted">{email}</p>
         </div>
         <RoleBadge role={role} />
         <button
@@ -50,7 +54,7 @@ export function Topbar({ email, fullName, role, onOpenMobileNav }: TopbarProps) 
           disabled={signingOut}
           aria-label="Sign out"
           title="Sign out"
-          className="rounded-lg p-2 text-muted transition-colors hover:bg-elevated hover:text-danger disabled:opacity-50"
+          className="rounded-lg p-2 text-muted transition-all hover:bg-danger/10 hover:text-danger disabled:opacity-50"
         >
           <LogOut className="h-5 w-5" aria-hidden />
         </button>

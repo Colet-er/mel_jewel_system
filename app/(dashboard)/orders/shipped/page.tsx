@@ -1,5 +1,11 @@
-﻿import { ModulePlaceholder } from "@/components/layout/module-placeholder";
+﻿import { StatusOrdersView } from "@/components/orders/status-orders-view";
 
-export default function Page() {
-  return <ModulePlaceholder title="Shipped Orders" description="Shipped order records are built in Phase 3." />;
+export const metadata = { title: "Shipped Orders" };
+
+export default function ShippedOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return <StatusOrdersView kind="shipped" searchParams={searchParams} />;
 }

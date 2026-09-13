@@ -14,9 +14,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       ref={ref}
       aria-invalid={hasError || undefined}
       className={cn(
-        "h-10 w-full rounded-lg border bg-elevated px-3 text-sm text-foreground placeholder:text-muted/60",
-        "transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        hasError ? "border-danger" : "border-border hover:border-muted/50 focus:border-primary",
+        "h-10 w-full rounded-lg border bg-background/55 px-3 text-sm text-foreground shadow-inner shadow-black/5 placeholder:text-muted/55",
+        "transition-all duration-200 disabled:cursor-not-allowed disabled:bg-elevated/40 disabled:opacity-60",
+        hasError ? "border-danger focus:ring-danger/15" : "border-white/10 hover:border-white/20 focus:border-primary focus:bg-background/80 focus:ring-4 focus:ring-primary/10",
         className
       )}
       {...props}

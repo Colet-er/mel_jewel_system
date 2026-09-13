@@ -15,7 +15,7 @@ export function DashboardShell({ children, email, fullName, role }: DashboardShe
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div className="flex min-h-screen flex-col lg:pl-64">
         <Topbar
@@ -24,8 +24,8 @@ export function DashboardShell({ children, email, fullName, role }: DashboardShe
           role={role}
           onOpenMobileNav={() => setMobileNavOpen(true)}
         />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-9">
+          <div className="w-full">{children}</div>
         </main>
       </div>
     </div>
