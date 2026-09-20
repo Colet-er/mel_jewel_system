@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Manual — Daily Pearls PH Order Management System</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --primary: #ec4899;
+      --primary-dark: #be185d;
+      --primary-light: #fbcfe8;
+      --primary-50: #fdf2f8;
+      --accent: #8b5cf6;
+      --text-main: #18181b;
+      --text-muted: #71717a;
+      --text-light: #a1a1aa;
+      --bg-main: #ffffff;
+      --bg-alt: #f8fafc;
+      --bg-card: #ffffff;
+      --border: #e2e8f0;
+      --border-light: #f1f5f9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text-main);
+      background: var(--bg-alt);
+      line-height: 1.65;
+      font-size: 14.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      background: var(--bg-main);
+      padding: 50px 65px;
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.05);
+      border-radius: 12px;
+    }
+
+    /* Cover / Header */
+    .cover-header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 30px;
+      margin-bottom: 35px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      background: var(--primary-50);
+      border: 2px solid var(--primary-light);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .brand-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--primary-dark);
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .doc-meta {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .doc-badge {
+      display: inline-block;
+      background: var(--primary-50);
+      color: var(--primary-dark);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+      border: 1px solid var(--primary-light);
+    }
+
+    /* Typography */
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 36px;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2::before {
+      content: "";
+      display: inline-block;
+      width: 5px;
+      height: 20px;
+      background: var(--primary);
+      border-radius: 3px;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      color: #334155;
+    }
+
+    ul, ol {
+      margin-bottom: 16px;
+      padding-left: 24px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    strong {
+      color: #0f172a;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #be185d;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0 24px 0;
+      font-size: 13.5px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1.5px solid var(--border);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-light);
+      color: #334155;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) td {
+      background: #fafafa;
+    }
+
+    /* Cards & Callouts */
+    .callout {
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin: 18px 0;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      font-size: 13.5px;
+    }
+
+    .callout-info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    .callout-tip {
+      background: var(--primary-50);
+      border: 1px solid var(--primary-light);
+      color: var(--primary-dark);
+    }
+
+    .callout-warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-reserved { background: #e0e7ff; color: #3730a3; }
+    .badge-paid { background: #dcfce7; color: #166534; }
+    .badge-shipped { background: #e0f2fe; color: #075985; }
+    .badge-claimed { background: #d1fae5; color: #065f46; }
+    .badge-rto { background: #fef3c7; color: #92400e; }
+    .badge-cancelled { background: #fee2e2; color: #991b1b; }
+
+    /* Workflow Diagram Box */
+    .flow-chart {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .flow-step {
+      background: white;
+      border: 1.5px solid var(--primary);
+      color: var(--primary-dark);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .flow-arrow {
+      color: var(--text-muted);
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    /* Grid boxes */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .card-box {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      padding: 18px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .card-box h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 8px;
+    }
+
+    /* TOC */
+    .toc {
+      background: #fdf2f8;
+      border: 1px solid var(--primary-light);
+      border-radius: 10px;
+      padding: 24px 30px;
+      margin-bottom: 40px;
+    }
+
+    .toc h3 {
+      color: var(--primary-dark);
+      font-size: 15px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0;
+      margin-bottom: 14px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 30px;
+      font-size: 13px;
+    }
+
+    .toc a {
+      color: #475569;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .toc a:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    /* Footer */
+    .doc-footer {
+      border-top: 1.5px solid var(--border);
+      padding-top: 25px;
+      margin-top: 50px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: white;
+        font-size: 12pt;
+      }
+      .container {
+        padding: 0;
+        box-shadow: none;
+        max-width: 100%;
+      }
+      h2 {
+        page-break-after: avoid;
+        margin-top: 24pt;
+      }
+      table, .flow-chart, .callout, .card-box {
+        page-break-inside: avoid;
+      }
+      .toc {
+        page-break-after: always;
+      }
+      @page {
+        margin: 1.8cm 1.5cm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header / Brand -->
+    <div class="cover-header">
+      <div class="brand-box">
+        <div class="brand-logo">DP</div>
+        <div>
+          <div class="brand-title">Daily Pearls PH</div>
+          <div class="brand-subtitle">Order Management System (OMS) — Standard Operating Procedure & User Manual</div>
+        </div>
+      </div>
+      <div class="doc-meta">
+        <div class="doc-badge">Official Manual</div>
+        <div>Version 2.0</div>
+        <div>Confidential & Internal</div>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <h1>System User Manual & Operations Guide</h1>
+    <p style="font-size: 15px; color: var(--text-muted); margin-bottom: 25px;">
+      A complete, step-by-step operational guide for staff, managers, and administrators covering all aspects of order processing, live selling reservations, multi-channel payment reconciliation, Moissanite jewelry inventory, commissions, and invoicing.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="toc">
+      <h3>Table of Contents</h3>
+      <div class="toc-grid">
+        <div><a href="#sec-1">1. System Overview & Architecture</a></div>
+        <div><a href="#sec-8">8. Collections & Cash Reconciliation</a></div>
+        <div><a href="#sec-2">2. User Roles & Permission Matrix</a></div>
+        <div><a href="#sec-9">9. Moissanite Inventory & Sold Ledger</a></div>
+        <div><a href="#sec-3">3. Logging In & Navigation</a></div>
+        <div><a href="#sec-10">10. Products & Category Management</a></div>
+        <div><a href="#sec-4">4. Dashboard & Business Analytics</a></div>
+        <div><a href="#sec-11">11. Employee Commission Tracking</a></div>
+        <div><a href="#sec-5">5. Orders & Reservation Lifecycle</a></div>
+        <div><a href="#sec-12">12. Customer Directory</a></div>
+        <div><a href="#sec-6">6. Payment Processing & Evidence</a></div>
+        <div><a href="#sec-13">13. Reports, Analytics & Exports</a></div>
+        <div><a href="#sec-7">7. Invoicing & Social Messaging</a></div>
+        <div><a href="#sec-14">14. Account Management & FAQ</a></div>
+      </div>
+    </div>
+
+    <!-- Section 1 -->
+    <h2 id="sec-1">1. System Overview & Architecture</h2>
+    <p>
+      The <strong>Daily Pearls PH Order Management System (OMS)</strong> is custom-engineered to handle the dynamic sales operations of luxury fine jewelry, cultured pearls, custom mounts, and Moissanite stones.
+    </p>
+    <div class="grid-2">
+      <div class="card-box">
+        <h4>📦 Multi-Channel Order Flow</h4>
+        <p style="font-size: 13px; margin: 0;">Supports Regular Live Selling Reservations, Custom Client Sourcing (<em>Pasabuy</em>), and Cash-on-Delivery (COD) orders with line-item management.</p>
+      </div>
+      <div class="card-box">
+        <h4>💳 Multi-Payment & Evidence</h4>
+        <p style="font-size: 13px; margin: 0;">Handles partial downpayments, remaining balance tracking, and immutable audit logs with receipt proof attachments.</p>
+      </div>
+      <div class="card-box">
+        <h4>💎 Moissanite Special Inventory</h4>
+        <p style="font-size: 13px; margin: 0;">Dedicated SKU registry, carat/setting specifications, cost accounting, and profit tracking per stone.</p>
+      </div>
+      <div class="card-box">
+        <h4>📊 Employee Commissions & Payouts</h4>
+        <p style="font-size: 13px; margin: 0;">Attribution of assisted sales to team members with real-time settlement tracking (Paid vs. Unpaid).</p>
+      </div>
+    </div>
+
+    <!-- Section 2 -->
+    <h2 id="sec-2">2. User Roles & Permission Matrix</h2>
+    <p>The system enforces Role-Based Access Control (RBAC) to ensure security across operational workflows:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Module / Action</th>
+          <th>Owner</th>
+          <th>Admin</th>
+          <th>Staff</th>
+          <th>Viewer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Dashboard & KPI View</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>👁️ Read-Only</td>
+        </tr>
+        <tr>
+          <td><strong>Create / Edit Reservations</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>✅ Yes</td>
+          <td>🚫 No</td>
+        </tr>
+        <tr>
+          <td><strong>Record Payments & Upload Proof</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>✅ Yes</td>
+          <td>🚫 No</td>
+        </tr>
+        <tr>
+          <td><strong>Ship, Claim, RTO & Reship</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>✅ Yes</td>
+          <td>🚫 No</td>
+        </tr>
+        <tr>
+          <td><strong>Commission Ledger & Payouts</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>🚫 Restricted</td>
+          <td>🚫 Restricted</td>
+        </tr>
+        <tr>
+          <td><strong>Moissanite Inventory & Pricing</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>👁️ View/Link</td>
+          <td>👁️ Read-Only</td>
+        </tr>
+        <tr>
+          <td><strong>Financial Reports & CSV Exports</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>👁️ View</td>
+          <td>🚫 Restricted</td>
+        </tr>
+        <tr>
+          <td><strong>User Accounts & System Settings</strong></td>
+          <td>✅ Full</td>
+          <td>✅ Full</td>
+          <td>🚫 Restricted</td>
+          <td>🚫 Restricted</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 3 -->
+    <h2 id="sec-3">3. Logging In & Navigation</h2>
+    <h3>3.1 Authentication</h3>
+    <ol>
+      <li>Open your web browser and navigate to <code>/login</code>.</li>
+      <li>Enter your registered corporate <strong>Email Address</strong> and <strong>Password</strong>.</li>
+      <li>Click <strong>Sign In</strong> to enter the secure dashboard session.</li>
+    </ol>
+    <div class="callout callout-info">
+      <div>ℹ️</div>
+      <div><strong>Security Note:</strong> Sessions utilize encrypted HTTP-only cookies. When finishing your shift on shared computers, always click <strong>Sign Out</strong> in the user menu.</div>
+    </div>
+
+    <!-- Section 4 -->
+    <h2 id="sec-4">4. Dashboard & Business Analytics</h2>
+    <p>The main dashboard displays high-priority operational metrics:</p>
+    <ul>
+      <li><strong>Total Revenue & Sales:</strong> Aggregated completed collections and total invoiced values.</li>
+      <li><strong>Active Pipeline:</strong> Counters for <em>Reserved</em>, <em>Paid</em>, <em>In Transit (Shipped)</em>, and <em>Claimed</em> packages.</li>
+      <li><strong>RTO Watch:</strong> Direct indicator of failed deliveries requiring immediate customer follow-up.</li>
+    </ul>
+
+    <!-- Section 5 -->
+    <h2 id="sec-5">5. Orders & Reservation Lifecycle</h2>
+    <h3>5.1 Reservation Types</h3>
+    <ul>
+      <li><strong>Regular:</strong> Standard items reserved during live selling streams or direct inquiries.</li>
+      <li><strong>Pasabuy:</strong> Custom-sourced or bespoke jewelry items procured specifically for a customer.</li>
+      <li><strong>Cash on Delivery (COD):</strong> Orders where the full amount or remaining balance is collected by the courier.</li>
+    </ul>
+
+    <h3>5.2 Creating a New Reservation</h3>
+    <ol>
+      <li>Go to <strong>Orders > Reserved</strong> and click <strong>+ Add Reservation</strong>.</li>
+      <li>Input <strong>Customer FB Name</strong>, <strong>Recipient Name</strong>, <strong>Phone Number</strong>, and complete <strong>Shipping Address</strong>.</li>
+      <li>In the <strong>Order Items (Bulk Ordering)</strong> section:
+        <ul>
+          <li>Click <strong>+ Add Item</strong> to append multiple line items.</li>
+          <li>Choose source: <strong>Manual Item</strong> or <strong>Moissanite Catalog</strong>.</li>
+          <li>Set quantity and unit price. Line totals compute automatically.</li>
+        </ul>
+      </li>
+      <li>Set <strong>Discount</strong> (if applicable) and <strong>Shipping Fee</strong>.</li>
+      <li>Enter the initial <strong>Downpayment (DP)</strong> and choose the <strong>Payment Method</strong>.</li>
+      <li>Click <strong>Save Reservation</strong>. A unique invoice number is automatically assigned.</li>
+    </ol>
+
+    <h3>5.3 Lifecycle Flowchart</h3>
+    <div class="flow-chart">
+      <div class="flow-step">1. Reserved</div>
+      <div class="flow-arrow">➔</div>
+      <div class="flow-step">2. Paid / Partial</div>
+      <div class="flow-arrow">➔</div>
+      <div class="flow-step">3. Shipped</div>
+      <div class="flow-arrow">➔</div>
+      <div class="flow-step" style="border-color: #10b981; color: #065f46;">4. Claimed</div>
+    </div>
+    <p style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: -10px;">
+      * If delivery fails during Step 3, order moves to <span class="badge badge-rto">RTO</span> and can be reshipped.
+    </p>
+
+    <h3>5.4 Shipping, Delivery & RTO Operations</h3>
+    <ul>
+      <li><strong>Ship Order:</strong> Open the order details, click <strong>Ship Order</strong>, select courier (e.g., LBC, J&T, Flash, Grab), and enter the tracking number.</li>
+      <li><strong>Mark Claimed:</strong> Once delivery confirmation is received, click <strong>Mark Claimed</strong>.</li>
+      <li><strong>Mark as RTO:</strong> If returned by courier, specify the RTO reason (e.g., Unreachable, Refused Delivery) and notes.</li>
+      <li><strong>Reship:</strong> Under <strong>Orders > RTO</strong>, click <strong>Reship Order</strong> to assign a new tracking number and restart transit.</li>
+    </ul>
+
+    <!-- Section 6 -->
+    <h2 id="sec-6">6. Payment Processing & Evidence</h2>
+    <p>The system supports split payments (initial downpayment followed by balance payments):</p>
+    <ol>
+      <li>Open the target order and click <strong>Record Payment</strong>.</li>
+      <li>Choose kind: <code>Downpayment</code> or <code>Balance</code>.</li>
+      <li>Select the channel: <strong>GCash, Maya, BDO, BPI, UnionBank, COD, Cash, Remittance</strong>.</li>
+      <li>Enter the <strong>Reference Number</strong> and upload the proof of payment receipt image.</li>
+      <li>Click <strong>Save Payment</strong>. The invoice summary and remaining balance update in real time.</li>
+    </ol>
+
+    <!-- Section 7 -->
+    <h2 id="sec-7">7. Invoicing & Social Messaging</h2>
+    <p>Located at <code>/orders/[id]/invoice</code>, the invoice provides both digital presentation and one-click social messaging:</p>
+    <div class="grid-2">
+      <div class="card-box">
+        <h4>🖨️ Professional Printable Invoice</h4>
+        <p style="font-size: 13px; margin: 0;">Formatted with official branding, itemized tables, payment breakdown, and payment receipt thumbnails. Ready to print or export to PDF via <code>Ctrl + P</code>.</p>
+      </div>
+      <div class="card-box">
+        <h4>💬 Social Media Fast Copy</h4>
+        <p style="font-size: 13px; margin: 0;">Click <strong>COPY INVOICE</strong>, <strong>COPY REGULAR</strong>, <strong>COPY PASABUY</strong>, or <strong>COPY COD</strong> to instantly paste pre-formatted order notifications directly to FB Messenger.</p>
+      </div>
+    </div>
+
+    <!-- Section 8 -->
+    <h2 id="sec-8">8. Collections & Cash Reconciliation</h2>
+    <p>
+      Access the <strong>Collections</strong> tab to view a centralized ledger of all funds collected across all channels. Filter by date, payment method, or customer name to conduct fast daily cash counts and bank deposit reconciliations.
+    </p>
+
+    <!-- Section 9 -->
+    <h2 id="sec-9">9. Moissanite Jewelry Inventory & Sales</h2>
+    <ul>
+      <li><strong>SKU Catalog (<code>/moissanite/sku</code>):</strong> Manage custom stones, settings (Solitaire, Halo, 6-Prong), carat weight, cost prices, and retail prices.</li>
+      <li><strong>Sold Ledger (<code>/moissanite/sold</code>):</strong> Automatic tracking of sold stones linked directly to customer invoice numbers, showing realized revenue and gross profit margins.</li>
+    </ul>
+
+    <!-- Section 10 -->
+    <h2 id="sec-10">10. Products & Category Management</h2>
+    <p>
+      Maintain your core product catalog (South Sea Pearls, Freshwater Pearls, Akoya, 14k/18k Mounts, Chains, Earrings) under <strong>Products</strong> and <strong>Categories</strong>. Toggle active/inactive states to control catalog availability.
+    </p>
+
+    <!-- Section 11 -->
+    <h2 id="sec-11">11. Employee Commission Tracking</h2>
+    <p>
+      Located under <strong>Commission & Assistance</strong> (Admin/Owner only):
+    </p>
+    <ol>
+      <li>Click <strong>+ Add Record</strong> to log a sales assistant's contribution to a closed order.</li>
+      <li>The system tracks total monthly commission by staff member, order sales volume, and settlement status.</li>
+      <li>Use the action menu to mark items as <span class="badge badge-paid">Paid</span> upon salary or commission payout.</li>
+    </ol>
+
+    <!-- Section 12 -->
+    <h2 id="sec-12">12. Customer Directory</h2>
+    <p>
+      The <strong>Customers</strong> view provides a complete customer database with contact numbers, delivery addresses, Facebook handles, and cumulative lifetime purchase history.
+    </p>
+
+    <!-- Section 13 -->
+    <h2 id="sec-13">13. Reports, Analytics & Exports</h2>
+    <p>
+      Generate high-level and detailed monthly performance summaries under <strong>Reports</strong>:
+    </p>
+    <ul>
+      <li>Monthly gross and net sales, shipping fees collected, discounts applied.</li>
+      <li>Order conversion rates, RTO percentages, and claim rates.</li>
+      <li><strong>CSV / Excel Export:</strong> Click <strong>Export CSV</strong> on any data table across Orders, Collections, or Commissions for external accounting spreadsheets.</li>
+    </ul>
+
+    <!-- Section 14 -->
+    <h2 id="sec-14">14. Account Management & FAQ</h2>
+    <h3>14.1 Managing Staff Accounts</h3>
+    <p>
+      Administrators can create new accounts, assign roles (<em>Staff, Admin, Viewer</em>), or deactivate departed personnel under <strong>Accounts</strong>.
+    </p>
+
+    <h3>14.2 Frequently Asked Questions (FAQ)</h3>
+    <div style="margin-top: 15px;">
+      <p><strong>Q: How do I handle a customer who paid via GCash first and will pay the balance in Cash?</strong><br>
+      A: Enter the initial GCash payment as Downpayment. When the remaining amount is collected upon delivery, open the order and click <em>Record Payment</em> with Cash as the method.</p>
+
+      <p><strong>Q: Can I edit an order after saving?</strong><br>
+      A: Yes, click the Edit button in the reservation view. Line items and shipping fees can be updated anytime before dispatch.</p>
+
+      <p><strong>Q: How do I print the invoice as a PDF file?</strong><br>
+      A: Navigate to the order invoice page, click <em>Print Invoice</em> (or press <code>Ctrl+P</code> on your keyboard), and select <em>Save as PDF</em> as the destination printer.</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="doc-footer">
+      <p><strong>Daily Pearls PH Order Management System</strong> — Internal Operations & Training Document</p>
+      <p>© 2026 Daily Pearls PH. All rights reserved. Generated on September 20, 2026.</p>
+    </div>
+  </div>
+</body>
+</html>

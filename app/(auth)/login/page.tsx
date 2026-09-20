@@ -87,25 +87,25 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="brand-divider mb-5 flex items-center gap-3 text-pink-light">
-              <span className="h-[1px] w-12 bg-gradient-to-r from-transparent to-pink-light/60" />
-              <div className="diamond text-xs">◆</div>
-              <span className="h-[1px] w-12 bg-gradient-to-l from-transparent to-pink-light/60" />
+            <div className="brand-divider mb-5 flex items-center gap-3 text-white">
+              <span className="h-[1px] w-12 bg-gradient-to-r from-transparent to-white/70" />
+              <div className="diamond text-xs text-white">◆</div>
+              <span className="h-[1px] w-12 bg-gradient-to-l from-transparent to-white/70" />
             </div>
 
-            <h2 className="brand-tagline text-lg font-bold tracking-[0.2em] text-foreground sm:text-xl">
+            <h2 className="brand-tagline text-lg font-bold tracking-[0.2em] text-white sm:text-xl">
               TIMELESS ELEGANCE,
               <br />
               EVERYDAY.
             </h2>
 
-            <p className="brand-description mt-3 max-w-xs text-xs font-light leading-relaxed text-muted sm:text-sm">
+            <p className="brand-description mt-3 max-w-xs text-xs font-normal leading-relaxed text-white/90 sm:text-sm">
               Jewelry that celebrates every moment,
               <br />
               every memory, and every story.
             </p>
 
-            <div className="mt-8 rounded-full border border-white/15 bg-white/[0.05] px-3.5 py-1 text-[11px] font-medium tracking-wider text-pink-light backdrop-blur-sm">
+            <div className="mt-8 rounded-full border border-white/30 bg-white/10 px-3.5 py-1 text-[11px] font-semibold tracking-wider text-white backdrop-blur-sm">
               DAILY PEARLS PH &bull; OMS
             </div>
           </div>
@@ -117,18 +117,18 @@ export default function LoginPage() {
         <section className="login-section flex flex-col justify-center bg-black/20 p-6 sm:p-10 lg:col-span-7 lg:p-12">
           <div className="login-card mx-auto w-full max-w-md">
 
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
               Log In to Your Account
             </h1>
 
-            <p className="login-subtitle mt-1.5 text-xs text-muted sm:text-sm">
+            <p className="login-subtitle mt-1.5 text-xs text-white/90 sm:text-sm">
               Welcome back! Please enter your details to continue.
             </p>
 
             {error ? (
               <div
                 role="alert"
-                className="mt-4 rounded-xl border border-danger/30 bg-danger/10 p-3 text-xs font-medium text-danger backdrop-blur-sm animate-in fade-in"
+                className="mt-4 rounded-xl border border-danger/40 bg-danger/20 p-3 text-xs font-semibold text-white backdrop-blur-sm animate-in fade-in"
               >
                 {error}
               </div>
@@ -137,13 +137,13 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
               {/* EMAIL */}
               <div className="form-group space-y-1.5">
-                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-white">
                   Email Address
                 </label>
 
                 <div className="input-wrapper relative flex items-center">
                   <svg
-                    className="input-icon pointer-events-none absolute left-3.5 h-4 w-4 text-muted"
+                    className="input-icon pointer-events-none absolute left-3.5 h-4 w-4 text-white/80"
                     viewBox="0 0 24 24"
                     fill="none"
                   >
@@ -171,20 +171,20 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={submitting}
-                    className="h-11 w-full rounded-xl border border-white/15 bg-black/35 pl-10 pr-4 text-sm text-foreground placeholder:text-muted/60 backdrop-blur-sm transition-all focus:border-primary focus:bg-black/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="h-11 w-full rounded-xl border border-white/20 bg-black/40 pl-10 pr-4 text-sm text-white placeholder:text-white/45 backdrop-blur-sm transition-all focus:border-primary focus:bg-black/60 focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
 
               {/* PASSWORD */}
               <div className="form-group space-y-1.5">
-                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-muted">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-white">
                   Password
                 </label>
 
                 <div className="input-wrapper relative flex items-center">
                   <svg
-                    className="input-icon pointer-events-none absolute left-3.5 h-4 w-4 text-muted"
+                    className="input-icon pointer-events-none absolute left-3.5 h-4 w-4 text-white/80"
                     viewBox="0 0 24 24"
                     fill="none"
                   >
@@ -212,12 +212,12 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     disabled={submitting}
-                    className="h-11 w-full rounded-xl border border-white/15 bg-black/35 pl-10 pr-11 text-sm text-foreground placeholder:text-muted/60 backdrop-blur-sm transition-all focus:border-primary focus:bg-black/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="h-11 w-full rounded-xl border border-white/20 bg-black/40 pl-10 pr-11 text-sm text-white placeholder:text-white/45 backdrop-blur-sm transition-all focus:border-primary focus:bg-black/60 focus:outline-none focus:ring-1 focus:ring-primary"
                   />
 
                   <button
                     type="button"
-                    className="password-toggle absolute right-3 rounded-lg p-1 text-muted transition-colors hover:text-foreground"
+                    className="password-toggle absolute right-3 rounded-lg p-1 text-white/80 transition-colors hover:text-white"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
@@ -267,7 +267,7 @@ export default function LoginPage() {
 
               {/* OPTIONS */}
               <div className="login-options flex items-center justify-between pt-1 text-xs">
-                <label className="remember flex cursor-pointer items-center gap-2 text-muted transition-colors hover:text-foreground">
+                <label className="remember flex cursor-pointer items-center gap-2 text-white/90 transition-colors hover:text-white">
                   <input
                     type="checkbox"
                     checked={rememberMe}
@@ -278,18 +278,18 @@ export default function LoginPage() {
                     className={`custom-checkbox flex h-4 w-4 items-center justify-center rounded border transition-all ${
                       rememberMe
                         ? "border-primary bg-primary text-[10px] font-bold text-white shadow-sm shadow-primary/30"
-                        : "border-white/20 bg-black/40"
+                        : "border-white/30 bg-black/40"
                     }`}
                   >
                     {rememberMe && "✓"}
                   </span>
-                  <span>Remember me</span>
+                  <span className="text-white font-medium">Remember me</span>
                 </label>
 
                 <button
                   type="button"
                   onClick={() => setInfoModal("forgot")}
-                  className="forgot-password text-xs font-medium text-pink-light transition-colors hover:text-primary hover:underline"
+                  className="forgot-password text-xs font-semibold text-white transition-colors hover:text-pink-light hover:underline"
                 >
                   Forgot password?
                 </button>
@@ -324,17 +324,17 @@ export default function LoginPage() {
 
               {/* DIVIDER */}
               <div className="divider my-4 flex items-center gap-3">
-                <span className="h-[1px] flex-1 bg-white/15" />
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
+                <span className="h-[1px] flex-1 bg-white/20" />
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                   Or continue with
                 </p>
-                <span className="h-[1px] flex-1 bg-white/15" />
+                <span className="h-[1px] flex-1 bg-white/20" />
               </div>
 
               {/* DEVELOPER PORTAL */}
               <Link
                 href="/developer/login"
-                className="developer-button flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-black/30 backdrop-blur-sm text-xs font-semibold text-foreground transition-all hover:bg-black/50 hover:border-primary/40 hover:text-pink-light"
+                className="developer-button flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/35 backdrop-blur-sm text-xs font-semibold text-white transition-all hover:bg-black/50 hover:border-white/40 hover:text-pink-light"
               >
                 <svg
                   width="18"
@@ -345,7 +345,7 @@ export default function LoginPage() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-primary"
+                  className="text-pink-light"
                 >
                   <polyline points="16 18 22 12 16 6" />
                   <polyline points="8 6 2 12 8 18" />
@@ -354,7 +354,7 @@ export default function LoginPage() {
               </Link>
             </form>
 
-            <p className="security-text mt-6 text-center text-[11px] text-muted/70">
+            <p className="security-text mt-6 text-center text-[11px] text-white/80 font-normal">
               Your information is protected with secure authentication.
             </p>
           </div>
@@ -368,20 +368,20 @@ export default function LoginPage() {
           onClick={() => setInfoModal(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-6 shadow-2xl text-center"
+            className="w-full max-w-sm rounded-2xl border border-white/20 bg-card p-6 shadow-2xl text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold text-foreground">
+            <h3 className="text-base font-semibold text-white">
               Password Reset
             </h3>
-            <p className="mt-2 text-xs text-muted leading-relaxed">
+            <p className="mt-2 text-xs text-white/90 leading-relaxed">
               To reset your account password, please contact the system administrator or an authorized developer in the Developer Portal.
             </p>
             <div className="mt-5 flex justify-center">
               <button
                 type="button"
                 onClick={() => setInfoModal(null)}
-                className="rounded-xl bg-elevated px-4 py-2 text-xs font-semibold text-foreground hover:bg-white/10"
+                className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20"
               >
                 Understood
               </button>

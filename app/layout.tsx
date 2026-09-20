@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import { RouteLoadingIndicator } from "@/components/layout/route-loading-indicator";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,9 +28,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        <Suspense fallback={null}>
-          <RouteLoadingIndicator />
-        </Suspense>
         {children}
       </body>
     </html>
