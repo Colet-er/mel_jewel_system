@@ -22,16 +22,16 @@ export function DataTable<Row>({ columns, rows, empty, rowKey }: DataTableProps<
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-b-2xl [scrollbar-gutter:stable]">
-      <table className="w-max min-w-full text-left text-sm">
+    <div className="w-full overflow-x-auto [scrollbar-gutter:stable]">
+      <table className="w-full min-w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-white/[0.07] bg-white/[0.025]">
+          <tr className="border-b border-border bg-white/[0.02]">
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
                 className={cn(
-                  "px-4 py-3.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted xl:px-5",
+                  "px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5",
                   column.className
                 )}
               >
@@ -40,14 +40,14 @@ export function DataTable<Row>({ columns, rows, empty, rowKey }: DataTableProps<
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border">
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
-              className="border-b border-white/[0.055] transition-colors last:border-0 even:bg-white/[0.012] hover:bg-primary/[0.045]"
+              className="h-[58px] transition-colors hover:bg-white/[0.02]"
             >
               {columns.map((column) => (
-                <td key={column.key} className={cn("px-4 py-4 xl:px-5", column.className)}>
+                <td key={column.key} className={cn("px-4 py-2 sm:px-5 text-sm text-foreground", column.className)}>
                   {column.render(row)}
                 </td>
               ))}

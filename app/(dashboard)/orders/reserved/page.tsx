@@ -23,6 +23,22 @@ export const metadata = { title: "Reserved Items" };
 
 function buildRow(order: Order): ReservedItemRow {
   const firstItem = (order.items ?? [])[0];
+  const itemsList = (order.items ?? []).map((item) => ({
+    id: item.id,
+    name: item.product?.name ?? "—",
+    sku: item.product?.sku ?? null,
+    category: item.product?.category?.name ?? null,
+    quantity: item.quantity,
+    unitPrice: Number(item.unit_price),
+  }));
+
+  const itemNameDisplay =
+    itemsList.length === 0
+      ? "—"
+      : itemsList.length === 1
+        ? itemsList[0].name
+        : itemsList.map((it) => `${it.name} (x${it.quantity})`).join(", ");
+
   const reservationTotal =
     Number(order.total_amount) + Number(order.shipping_fee ?? 0);
   const paymentSummary = calculatePaymentBalance(
@@ -41,7 +57,8 @@ function buildRow(order: Order): ReservedItemRow {
     customerName: order.customer?.name ?? "—",
     phone: order.customer?.phone ?? null,
     address: order.customer?.address ?? null,
-    itemName: firstItem?.product?.name ?? "—",
+    itemName: itemNameDisplay,
+    items: itemsList,
     itemCode: firstItem?.product?.sku ?? null,
     category: firstItem?.product?.category?.name ?? null,
     qty: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0),

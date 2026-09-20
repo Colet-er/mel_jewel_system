@@ -114,6 +114,46 @@ describe("validateReservationInput", () => {
     expect(validateReservationInput({ ...validInput, type: "pasabuy" })).toBeNull();
     expect(validateReservationInput({ ...validInput, type: "cod" })).toBeNull();
   });
+
+  it("passes for valid multi-item input", () => {
+    const multiItemInput = {
+      ...validInput,
+      items: [
+        { itemName: "Pearl Ring", itemCode: "PR-01", category: "Ring", quantity: 2, unitPrice: 300 },
+        { itemName: "Moissanite Earring", itemCode: "ME-02", category: "Earring", quantity: 1, unitPrice: 400 },
+      ],
+    };
+    expect(validateReservationInput(multiItemInput)).toBeNull();
+  });
+
+  it("fails when any multi-item line item is invalid", () => {
+    const invalidMultiItem = {
+      ...validInput,
+      items: [
+        { itemName: "Pearl Ring", quantity: 1, unitPrice: 500 },
+        { itemName: "", quantity: 1, unitPrice: 500 },
+      ],
+    };
+    expect(validateReservationInput(invalidMultiItem)).toBe("Item name is required.");
+
+    const invalidQtyMultiItem = {
+      ...validInput,
+      items: [
+        { itemName: "Pearl Ring", quantity: 1, unitPrice: 500 },
+        { itemName: "Earring", quantity: 0, unitPrice: 500 },
+      ],
+    };
+    expect(validateReservationInput(invalidQtyMultiItem)).toBe("Quantity must be at least 1.");
+
+    const invalidPriceMultiItem = {
+      ...validInput,
+      items: [
+        { itemName: "Pearl Ring", quantity: 1, unitPrice: 500 },
+        { itemName: "Earring", quantity: 1, unitPrice: -10 },
+      ],
+    };
+    expect(validateReservationInput(invalidPriceMultiItem)).toBe("Price cannot be negative.");
+  });
 });
 
 describe("round2", () => {

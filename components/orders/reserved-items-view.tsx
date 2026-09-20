@@ -10,11 +10,13 @@ import {
   Eye,
   MoreHorizontal,
   Pencil,
+  Truck,
 } from "lucide-react";
 import type { OrderStatus, ReservationType } from "@/types";
 import {
   archiveSelectedOrders,
   cancelSelectedOrders,
+  shipSelectedOrders,
   type BulkActionResult,
 } from "@/app/(dashboard)/orders/reserved/actions";
 import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
@@ -26,6 +28,15 @@ import {
 } from "@/components/orders/reservation-form";
 import { PaymentFormModal } from "@/components/orders/payment-form";
 
+export interface ReservedRowItem {
+  id: string;
+  name: string;
+  sku: string | null;
+  category: string | null;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface ReservedItemRow {
   id: string;
   createdAt: string;
@@ -35,6 +46,7 @@ export interface ReservedItemRow {
   phone: string | null;
   address: string | null;
   itemName: string;
+  items?: ReservedRowItem[];
   itemCode: string | null;
   category: string | null;
   qty: number;
@@ -66,21 +78,40 @@ const checkboxClass =
   "h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-white/20 bg-background/60 transition-colors checked:border-primary checked:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
 const headerCellClass =
-  "px-3 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted xl:px-4";
+  "px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4";
 
 function toFormValues(row: ReservedItemRow): ReservationFormValues {
-  const qty = row.qty > 0 ? row.qty : 1;
+  const formItems = (row.items && row.items.length > 0)
+    ? row.items.map((it, idx) => ({
+        id: it.id || `row-item-${idx}`,
+        itemSource: (it.sku ? "moissanite" : "manual") as "manual" | "moissanite",
+        selectedInventoryId: "",
+        itemCode: it.sku ?? "",
+        itemName: it.name,
+        category: it.category ?? "",
+        quantity: String(it.quantity),
+        price: String(it.unitPrice),
+      }))
+    : [
+        {
+          id: "row-item-1",
+          itemSource: (row.itemCode ? "moissanite" : "manual") as "manual" | "moissanite",
+          selectedInventoryId: "",
+          itemCode: row.itemCode ?? "",
+          itemName: row.itemName === "—" ? "" : row.itemName,
+          category: row.category ?? "",
+          quantity: String(row.qty > 0 ? row.qty : 1),
+          price: String(row.unitPrice),
+        },
+      ];
+
   return {
     invoiceNumber: row.invoiceNumber,
     fbName: row.fbName === "—" ? "" : row.fbName,
     customerName: row.customerName === "—" ? "" : row.customerName,
     customerAddress: row.address ?? "",
     phone: row.phone ?? "",
-    itemName: row.itemName === "—" ? "" : row.itemName,
-    itemCode: row.itemCode ?? "",
-    category: row.category ?? "",
-    quantity: String(qty),
-    price: String(row.unitPrice),
+    items: formItems,
     discount: String(row.discount),
     shippingFee: String(row.shippingFee ?? 0),
     downpayment: String(row.dpPaid),
@@ -178,7 +209,17 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
     );
   }
 
-
+  function handleShip() {
+    runBulkAction(
+      `Mark {count} reservation(s) as shipped?`,
+      shipSelectedOrders,
+      (result) =>
+        `Shipped ${result.succeeded.length} order(s).` +
+        (result.failed.length > 0
+          ? ` ${result.failed.length} failed.`
+          : "")
+    );
+  }
 
   return (
     <div>
@@ -199,7 +240,11 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
           <span className="text-sm text-muted">
             {selected.size} selected
           </span>
-          <Button size="sm" onClick={handleRecordPayment} disabled={isPending}>
+          <Button size="sm" onClick={handleShip} disabled={isPending}>
+            <Truck className="h-4 w-4" aria-hidden />
+            Ship Selected
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleRecordPayment} disabled={isPending}>
             <BadgeCheck className="h-4 w-4" aria-hidden />
             Record Payment
           </Button>
@@ -227,11 +272,11 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
       {rows.length === 0 ? (
         <>{empty}</>
       ) : (
-        <div className="w-full overflow-x-auto [scrollbar-gutter:stable]">
-          <table className="w-max min-w-full text-left text-sm">
+        <div className="w-full overflow-x-auto rounded-b-2xl [scrollbar-gutter:stable]">
+          <table className="w-full min-w-full text-left text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-white/[0.07] bg-white/[0.025]">
-                <th scope="col" className="w-12 px-4 py-3">
+                <th scope="col" className="w-10 px-3 py-3 sm:w-12 sm:px-4">
                   <input
                     ref={headerCheckboxRef}
                     type="checkbox"
@@ -259,11 +304,11 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
               {visibleRows.map(({ row, isSelected }) => (
                 <tr
                   key={row.id}
-className={`border-b border-white/[0.055] transition-colors last:border-0 hover:bg-primary/[0.045] ${
-                  isSelected ? "bg-primary/5" : ""
-                }`}
+                  className={`border-b border-white/[0.055] transition-colors last:border-0 hover:bg-primary/[0.045] ${
+                    isSelected ? "bg-primary/5" : ""
+                  }`}
                 >
-                  <td className="px-4 py-3.5">
+                  <td className="px-3 py-3 sm:px-4 sm:py-3.5">
                     <input
                       type="checkbox"
                       aria-label={`Select reservation ${row.invoiceNumber}`}
@@ -272,18 +317,24 @@ className={`border-b border-white/[0.055] transition-colors last:border-0 hover:
                       className={checkboxClass}
                     />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3.5 xl:px-4">{formatDate(row.createdAt)}</td>
-                  <td className="whitespace-nowrap px-3 py-3.5 font-medium text-pink-light xl:px-4">{row.invoiceNumber}</td>
-                  <td className="px-3 py-3.5 xl:px-4">{row.fbName}</td>
-                  <td className="px-3 py-3.5 xl:px-4">{row.customerName}</td>
-                  <td className="px-3 py-3.5 xl:px-4">{row.itemName}</td>
-                  <td className="px-3 py-3.5 text-right xl:px-4">{row.qty.toLocaleString("en-US")}</td>
-                  <td className="whitespace-nowrap px-3 py-3.5 text-right xl:px-4">{formatCurrency(row.amount)}</td>
-                  <td className="whitespace-nowrap px-3 py-3.5 text-right xl:px-4">{formatCurrency(row.dpPaid)}</td>
-                  <td className="whitespace-nowrap px-3 py-3.5 text-right xl:px-4">{formatCurrency(row.balance)}</td>
-                  <td className="whitespace-nowrap px-3 py-3.5 xl:px-4">{formatReservationType(row.type)}</td>
-                  <td className="px-3 py-3.5 xl:px-4"><StatusBadge status={row.status} /></td>
-                  <td className="whitespace-nowrap px-3 py-3.5 text-right xl:px-4">
+                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">{formatDate(row.createdAt)}</td>
+                  <td className="whitespace-nowrap px-2.5 py-3 font-medium text-pink-light sm:px-3.5 sm:py-3.5 xl:px-4">{row.invoiceNumber}</td>
+                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    <div className="max-w-[100px] lg:max-w-[130px] truncate text-muted" title={row.fbName}>{row.fbName}</div>
+                  </td>
+                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    <div className="max-w-[120px] lg:max-w-[160px] truncate" title={row.customerName}>{row.customerName}</div>
+                  </td>
+                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    <div className="max-w-[140px] lg:max-w-[200px] truncate" title={row.itemName}>{row.itemName}</div>
+                  </td>
+                  <td className="px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{row.qty.toLocaleString("en-US")}</td>
+                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.amount)}</td>
+                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.dpPaid)}</td>
+                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.balance)}</td>
+                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">{formatReservationType(row.type)}</td>
+                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4"><StatusBadge status={row.status} /></td>
+                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">
                     <div className="inline-flex items-center justify-end gap-2">
                       <Link
                         href={`/orders/${row.id}/invoice`}
@@ -392,6 +443,12 @@ function ManageMenu({
     setShowPaymentModal(true);
   }
 
+  function handleShip() {
+    setOpen(false);
+    if (!window.confirm(`Mark reservation ${row.invoiceNumber} as shipped?`)) return;
+    shipSelectedOrders([row.id]).catch((err) => console.error("Ship failed:", err));
+  }
+
   function handleCancel() {
     setOpen(false);
     const reason = window.prompt(
@@ -414,6 +471,10 @@ function ManageMenu({
           <button role="menuitem" type="button" className={itemClass} onClick={handleEdit}>
             <Pencil className="h-4 w-4 text-muted" aria-hidden />
             Edit
+          </button>
+          <button role="menuitem" type="button" className={itemClass} onClick={handleShip}>
+            <Truck className="h-4 w-4 text-muted" aria-hidden />
+            Ship Order
           </button>
           <button role="menuitem" type="button" className={itemClass} onClick={handlePayment}>
             <BadgeCheck className="h-4 w-4 text-muted" aria-hidden />

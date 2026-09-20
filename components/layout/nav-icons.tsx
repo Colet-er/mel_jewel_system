@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Truck,
   Users,
+  UserCog,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const ICONS: Record<string, LucideIcon> = {
   truck: Truck,
   "x-circle": XCircle,
   users: Users,
+  "user-cog": UserCog,
   package: Package,
   tags: Tags,
   "trending-up": TrendingUp,

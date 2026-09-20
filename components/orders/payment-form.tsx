@@ -102,9 +102,11 @@ export function PaymentFormModal({
         return;
       }
 
-      const message = result.fullyPaid
-        ? `Payment recorded. ${reservation.invoiceNumber} is now fully paid.`
-        : `Payment recorded. Remaining balance: ${formatCurrency(result.remainingBalance)}.`;
+      const message = result.shipped
+        ? `Payment details recorded. ${reservation.invoiceNumber} has been moved to Shipped.`
+        : result.fullyPaid
+          ? `Payment recorded. ${reservation.invoiceNumber} is now fully paid.`
+          : `Payment recorded. Remaining balance: ${formatCurrency(result.remainingBalance)}.`;
       onSuccess(
         result.evidenceCount > 0
           ? `${message} Saved ${result.evidenceCount} evidence image(s).`
@@ -159,7 +161,7 @@ export function PaymentFormModal({
               <Input
                 id="payment-amount"
                 type="number"
-                min="0.01"
+                min="0"
                 max={reservation.balance}
                 step="0.01"
                 required

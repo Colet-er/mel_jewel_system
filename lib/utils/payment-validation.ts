@@ -43,8 +43,8 @@ export function isPaymentMethod(value: string): value is PaymentMethod {
 export function validatePaymentInput(
   input: PaymentValidationInput
 ): string | null {
-  if (!Number.isFinite(input.amount) || input.amount <= 0) {
-    return "Payment amount must be greater than zero.";
+  if (!Number.isFinite(input.amount) || input.amount < 0) {
+    return "Payment amount must be greater than or equal to zero.";
   }
   if (!isPaymentMethod(input.method)) {
     return "Select a valid payment method.";

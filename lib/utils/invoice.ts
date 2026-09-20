@@ -48,6 +48,7 @@ export interface InvoiceSummary {
 
 export type InvoiceTransactionLabel =
   | "REGULAR"
+  | "COD"
   | "CASH ON DELIVERY (COD)"
   | "PASABUY"
   | "PASABUY COD"
@@ -74,6 +75,14 @@ const EPSILON = 0.005;
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/** Check if an order is configured as Cash on Delivery */
+export function isCodOrder(order: Order): boolean {
+  if (order.reservation_type === "cod") return true;
+  return (order.payments ?? []).some(
+    (p) => p.payment_method?.trim().toUpperCase() === "COD"
+  );
 }
 
 /** Builds the full money/item picture of an order from real data. */
@@ -127,20 +136,27 @@ export function buildInvoiceSummary(order: Order): InvoiceSummary {
 
 /**
  * Transaction wording is derived from reservation type and payment balance.
- * A Pasabuy with any remaining balance is payable on delivery, so it is shown
- * as PASABUY COD without introducing another stored reservation type.
+ * If an order is COD and not fully paid yet, the footer/transaction label is COD.
  */
 export function getInvoiceTransactionLabel(
   order: Order,
   summary = buildInvoiceSummary(order)
 ): InvoiceTransactionLabel {
-  const type = order.reservation_type ?? "regular";
+  const isCod = isCodOrder(order);
+  const isNotFullyPaid = summary.amountDue > EPSILON;
   const paymentState = detectPaymentState(summary);
 
-  if (paymentState === "fully-paid") return "FULLY PAID";
-  if (type === "cod") return "CASH ON DELIVERY (COD)";
-  if (type === "pasabuy") {
-    return summary.amountDue > EPSILON ? "PASABUY COD" : "PASABUY";
+  if (isCod && isNotFullyPaid) {
+    return "COD";
+  }
+  if (paymentState === "fully-paid") {
+    return "FULLY PAID";
+  }
+  if (isCod) {
+    return "COD";
+  }
+  if (order.reservation_type === "pasabuy") {
+    return isNotFullyPaid ? "PASABUY COD" : "PASABUY";
   }
   return "REGULAR";
 }
@@ -153,17 +169,20 @@ export function getInvoiceStatusLabel(
   if (order.status === "cancelled") return "Cancelled";
   if (order.status === "shipped") return "Shipped";
 
+  const isCod = isCodOrder(order);
+  const isNotFullyPaid = summary.amountDue > EPSILON;
   const paymentState = detectPaymentState(summary);
-  if (order.status === "paid" || paymentState === "fully-paid") {
-    return "Fully Paid";
-  }
-  if (order.reservation_type === "cod" && summary.amountDue > EPSILON) {
+
+  if (isCod && isNotFullyPaid) {
     return "COD";
+  }
+  if ((order.status === "paid" || paymentState === "fully-paid") && !isNotFullyPaid) {
+    return "Fully Paid";
   }
   if (
     order.reservation_type === "pasabuy" &&
     paymentState === "partial" &&
-    summary.amountDue > EPSILON
+    isNotFullyPaid
   ) {
     return "Pasabuy COD";
   }
@@ -185,13 +204,18 @@ export function detectPaymentState(summary: InvoiceSummary): InvoicePaymentState
 
 /** Order type + payment state → the template to render/copy. */
 export function resolveInvoiceTemplate(order: Order): InvoiceTemplate {
-  const type = order.reservation_type ?? "regular";
-  if (type === "cod") return "cod";
+  const isCod = isCodOrder(order);
+  const summary = buildInvoiceSummary(order);
+  const isNotFullyPaid = summary.amountDue > EPSILON;
 
-  const state = detectPaymentState(buildInvoiceSummary(order));
+  if (isCod && isNotFullyPaid) return "cod";
+
+  const state = detectPaymentState(summary);
+  const type = order.reservation_type ?? "regular";
   const prefix = type === "pasabuy" ? "pasabuy" : "regular";
   if (state === "fully-paid") return `${prefix}-full` as InvoiceTemplate;
   if (state === "partial") return `${prefix}-downpayment` as InvoiceTemplate;
+  if (isCod) return "cod";
   return `${prefix}-initial` as InvoiceTemplate;
 }
 

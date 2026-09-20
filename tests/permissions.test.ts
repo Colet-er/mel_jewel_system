@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { hasPermission } from "@/lib/permissions/roles";
 
 describe("hasPermission", () => {
-  it("grants admins full management permissions", () => {
+  it("grants owners and admins full management permissions", () => {
+    expect(hasPermission("owner", "users:manage")).toBe(true);
+    expect(hasPermission("owner", "orders:cancel")).toBe(true);
     expect(hasPermission("admin", "users:manage")).toBe(true);
     expect(hasPermission("admin", "orders:cancel")).toBe(true);
   });

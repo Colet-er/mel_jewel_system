@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import {
   createReservation,
   updateReservation,
@@ -21,46 +21,100 @@ export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
   "COD",
 ];
 
+export interface FormLineItem {
+  id: string;
+  itemSource: "manual" | "moissanite";
+  selectedInventoryId: string;
+  itemCode: string;
+  itemName: string;
+  category: string;
+  quantity: string;
+  price: string;
+}
+
 export interface ReservationFormValues {
   invoiceNumber: string;
   fbName: string;
   customerName: string;
   customerAddress: string;
   phone: string;
-  itemName: string;
-  itemCode: string;
-  category: string;
-  quantity: string;
-  price: string;
+  items: FormLineItem[];
   discount: string;
   shippingFee: string;
   downpayment: string;
   downpaymentMethod: string;
   type: ReservationTypeOption;
+  // Optional single-item legacy fallback
+  itemName?: string;
+  itemCode?: string;
+  category?: string;
+  quantity?: string;
+  price?: string;
 }
 
-const EMPTY_VALUES: ReservationFormValues = {
-  invoiceNumber: "",
-  fbName: "",
-  customerName: "",
-  customerAddress: "",
-  phone: "",
-  itemName: "",
-  itemCode: "",
-  category: "",
-  quantity: "1",
-  price: "",
-  discount: "0",
-  shippingFee: "0",
-  downpayment: "0",
-  downpaymentMethod: "",
-  type: "Regular",
-};
+function createEmptyItem(idPrefix: string = "item"): FormLineItem {
+  return {
+    id: `${idPrefix}-${Math.random().toString(36).substring(2, 9)}`,
+    itemSource: "manual",
+    selectedInventoryId: "",
+    itemCode: "",
+    itemName: "",
+    category: "",
+    quantity: "1",
+    price: "",
+  };
+}
+
+function normalizeInitialValues(initial?: Partial<ReservationFormValues>): ReservationFormValues {
+  let initialItems: FormLineItem[] = [];
+
+  if (initial?.items && initial.items.length > 0) {
+    initialItems = initial.items.map((item, idx) => ({
+      id: item.id || `item-${idx}-${Math.random().toString(36).substring(2, 9)}`,
+      itemSource: item.itemSource ?? (item.selectedInventoryId ? "moissanite" : "manual"),
+      selectedInventoryId: item.selectedInventoryId || "",
+      itemCode: item.itemCode || "",
+      itemName: item.itemName || "",
+      category: item.category || "",
+      quantity: String(item.quantity || "1"),
+      price: String(item.price ?? ""),
+    }));
+  } else if (initial?.itemName || initial?.price) {
+    initialItems = [
+      {
+        id: `item-${Math.random().toString(36).substring(2, 9)}`,
+        itemSource: "manual",
+        selectedInventoryId: "",
+        itemCode: initial.itemCode || "",
+        itemName: initial.itemName || "",
+        category: initial.category || "",
+        quantity: String(initial.quantity || "1"),
+        price: String(initial.price || ""),
+      },
+    ];
+  } else {
+    initialItems = [createEmptyItem("initial")];
+  }
+
+  return {
+    invoiceNumber: initial?.invoiceNumber || "",
+    fbName: initial?.fbName || "",
+    customerName: initial?.customerName || "",
+    customerAddress: initial?.customerAddress || "",
+    phone: initial?.phone || "",
+    items: initialItems,
+    discount: initial?.discount || "0",
+    shippingFee: initial?.shippingFee || "0",
+    downpayment: initial?.downpayment || "0",
+    downpaymentMethod: initial?.downpaymentMethod || "",
+    type: initial?.type || "Regular",
+  };
+}
 
 interface ReservationFormModalProps {
   mode: "create" | "edit";
   orderId?: string;
-  initial?: ReservationFormValues;
+  initial?: Partial<ReservationFormValues>;
   onClose: () => void;
 }
 
@@ -89,29 +143,17 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Quantity × price minus the optional discount, rounded to centavos. */
-function netTotal(quantity: string, price: string, discount: string): number {
-  const qty = parseNumber(quantity);
-  const unitPrice = parseNumber(price);
-  const parsedDiscount = Number.isFinite(parseNumber(discount))
-    ? parseNumber(discount)
-    : 0;
-  if (!Number.isFinite(qty) || !Number.isFinite(unitPrice)) return Number.NaN;
-  return round2(qty * unitPrice - parsedDiscount);
-}
-
 export function ReservationFormModal({
   mode,
   orderId,
-  initial = EMPTY_VALUES,
+  initial,
   onClose,
 }: ReservationFormModalProps) {
   const router = useRouter();
-  const [values, setValues] = useState<ReservationFormValues>(initial);
+  const baseId = useId();
+  const [values, setValues] = useState<ReservationFormValues>(() => normalizeInitialValues(initial));
   const [error, setError] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<MoissaniteInventoryOption[]>([]);
-  const [selectedInventoryId, setSelectedInventoryId] = useState("");
-  const [itemSource, setItemSource] = useState<"manual" | "moissanite">("manual");
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -145,29 +187,9 @@ export function ReservationFormModal({
           category: Array.isArray(item.category) ? item.category[0] ?? null : item.category,
         })) as MoissaniteInventoryOption[];
         setInventoryItems(items);
-        const existing = items.find((item) => item.sku.toLowerCase() === initial.itemCode.trim().toLowerCase());
-        if (existing) {
-          setSelectedInventoryId(existing.id);
-          setItemSource("moissanite");
-        }
       });
     return () => { active = false; };
-  }, [initial.itemCode]);
-
-  function selectInventoryItem(id: string) {
-    setSelectedInventoryId(id);
-    if (!id) return;
-    const item = inventoryItems.find((candidate) => candidate.id === id);
-    if (!item) return;
-    setValues((current) => ({
-      ...current,
-      itemCode: item.sku,
-      itemName: item.description || item.item_name,
-      category: item.category?.name ?? "Moissanite",
-      price: item.selling_price.toFixed(2),
-    }));
-    setError(null);
-  }
+  }, []);
 
   function handleBackdropClick(event: React.MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) {
@@ -183,23 +205,105 @@ export function ReservationFormModal({
     setError(null);
   }
 
+  function handleAddItem() {
+    setValues((current) => ({
+      ...current,
+      items: [...current.items, createEmptyItem("line")],
+    }));
+    setError(null);
+  }
+
+  function handleRemoveItem(index: number) {
+    if (values.items.length <= 1) return;
+    setValues((current) => ({
+      ...current,
+      items: current.items.filter((_, idx) => idx !== index),
+    }));
+    setError(null);
+  }
+
+  function handleUpdateItem(index: number, key: keyof FormLineItem, val: string) {
+    setValues((current) => {
+      const nextItems = [...current.items];
+      nextItems[index] = { ...nextItems[index], [key]: val };
+      return { ...current, items: nextItems };
+    });
+    setError(null);
+  }
+
+  function handleSelectInventoryItem(index: number, inventoryId: string) {
+    const item = inventoryItems.find((candidate) => candidate.id === inventoryId);
+    setValues((current) => {
+      const nextItems = [...current.items];
+      if (item) {
+        nextItems[index] = {
+          ...nextItems[index],
+          selectedInventoryId: inventoryId,
+          itemSource: "moissanite",
+          itemCode: item.sku,
+          itemName: item.description || item.item_name,
+          category: item.category?.name ?? "Moissanite",
+          price: item.selling_price.toFixed(2),
+        };
+      } else {
+        nextItems[index] = {
+          ...nextItems[index],
+          selectedInventoryId: "",
+          itemSource: "manual",
+        };
+      }
+      return { ...current, items: nextItems };
+    });
+    setError(null);
+  }
+
+  // Calculate Subtotal (sum of all line totals: qty * unitPrice)
+  let subtotal = 0;
+  let hasValidItems = values.items.length > 0;
+  for (const item of values.items) {
+    const qty = parseNumber(item.quantity);
+    const unitPrice = parseNumber(item.price);
+    if (!Number.isFinite(qty) || !Number.isFinite(unitPrice) || qty < 1 || unitPrice < 0) {
+      hasValidItems = false;
+      break;
+    }
+    subtotal += qty * unitPrice;
+  }
+  subtotal = round2(subtotal);
+
+  const discount = Number.isFinite(parseNumber(values.discount)) ? parseNumber(values.discount) : 0;
+  const shippingFee = Number.isFinite(parseNumber(values.shippingFee)) ? parseNumber(values.shippingFee) : 0;
+  const totalAmount = round2(Math.max(0, subtotal - discount));
+  const grandTotal = round2(totalAmount + shippingFee);
+
   function buildInput(): ReservationInput {
-    const quantity = Math.trunc(parseNumber(values.quantity));
-    const price = parseNumber(values.price);
+    const lineItems = values.items.map((it) => {
+      const qty = Math.max(1, Math.trunc(parseNumber(it.quantity) || 1));
+      const price = parseNumber(it.price) || 0;
+      return {
+        itemName: it.itemName.trim(),
+        itemCode: it.itemCode.trim() || undefined,
+        category: it.category.trim() || undefined,
+        quantity: qty,
+        unitPrice: price,
+      };
+    });
+
+    const first = lineItems[0];
+    const totalQty = lineItems.reduce((sum, item) => sum + item.quantity, 0);
+
     return {
       invoiceNumber: values.invoiceNumber.trim(),
       fbName: values.fbName.trim(),
       customerName: values.customerName.trim(),
       customerAddress: values.customerAddress.trim(),
       phone: values.phone.trim(),
-      itemName: values.itemName.trim(),
-      itemCode: values.itemCode.trim(),
-      category: values.category.trim(),
-      quantity,
-      amount:
-        Number.isFinite(quantity) && Number.isFinite(price)
-          ? round2(quantity * price)
-          : Number.NaN,
+      items: lineItems,
+      itemName: first?.itemName ?? "",
+      itemCode: first?.itemCode ?? "",
+      category: first?.category ?? "",
+      quantity: totalQty,
+      amount: hasValidItems ? subtotal : Number.NaN,
       discount: parseNumber(values.discount || "0") || 0,
       shippingFee: parseNumber(values.shippingFee || "0") || 0,
       downpayment: parseNumber(values.downpayment || "0") || 0,
@@ -211,9 +315,27 @@ export function ReservationFormModal({
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (isPending) return;
-    if (itemSource === "moissanite" && !selectedInventoryId) {
-      setError("Select a Moissanite item from the dropdown.");
-      return;
+
+    for (let i = 0; i < values.items.length; i++) {
+      const item = values.items[i];
+      if (item.itemSource === "moissanite" && !item.selectedInventoryId) {
+        setError(`Select a Moissanite item for line item #${i + 1}.`);
+        return;
+      }
+      if (!item.itemName.trim()) {
+        setError(`Item name is required for line item #${i + 1}.`);
+        return;
+      }
+      const qty = parseNumber(item.quantity);
+      if (!Number.isFinite(qty) || qty < 1) {
+        setError(`Quantity must be at least 1 for line item #${i + 1}.`);
+        return;
+      }
+      const price = parseNumber(item.price);
+      if (!Number.isFinite(price) || price < 0) {
+        setError(`Price cannot be negative for line item #${i + 1}.`);
+        return;
+      }
     }
 
     const input = buildInput();
@@ -233,8 +355,7 @@ export function ReservationFormModal({
     });
   }
 
-  const total = netTotal(values.quantity, values.price, values.discount);
-  const originalDownpayment = parseNumber(initial.downpayment || "0") || 0;
+  const originalDownpayment = parseNumber(initial?.downpayment || "0") || 0;
   const editedDownpayment = parseNumber(values.downpayment || "0") || 0;
   const needsDownpaymentMethod =
     (mode === "create" && editedDownpayment > 0) ||
@@ -263,14 +384,14 @@ export function ReservationFormModal({
           </button>
         </div>
 
-        <form noValidate onSubmit={handleSubmit} className="space-y-5 px-5 py-5">
+        <form noValidate onSubmit={handleSubmit} className="space-y-6 px-5 py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <h3 className={sectionHeadingClass}>Basic Information</h3>
 
             <div>
-              <Label htmlFor="reservation-fb-name">FB Name</Label>
+              <Label htmlFor={`${baseId}-fb-name`}>FB Name</Label>
               <Input
-                id="reservation-fb-name"
+                id={`${baseId}-fb-name`}
                 value={values.fbName}
                 onChange={(event) => update("fbName", event.target.value)}
                 placeholder="e.g. Maria S."
@@ -279,9 +400,9 @@ export function ReservationFormModal({
             </div>
 
             <div>
-              <Label htmlFor="reservation-invoice-number">Invoice Number</Label>
+              <Label htmlFor={`${baseId}-invoice-number`}>Invoice Number</Label>
               <Input
-                id="reservation-invoice-number"
+                id={`${baseId}-invoice-number`}
                 value={
                   mode === "create"
                     ? "Auto-generated upon save"
@@ -294,9 +415,9 @@ export function ReservationFormModal({
             </div>
 
             <div>
-              <Label htmlFor="reservation-type">Type</Label>
+              <Label htmlFor={`${baseId}-type`}>Type</Label>
               <select
-                id="reservation-type"
+                id={`${baseId}-type`}
                 value={values.type}
                 onChange={(event) =>
                   update("type", event.target.value as ReservationTypeOption)
@@ -314,9 +435,9 @@ export function ReservationFormModal({
             <h3 className={`${sectionHeadingClass} mt-2`}>Shipping Information</h3>
 
             <div>
-              <Label htmlFor="reservation-customer-name">Customer Name</Label>
+              <Label htmlFor={`${baseId}-customer-name`}>Customer Name</Label>
               <Input
-                id="reservation-customer-name"
+                id={`${baseId}-customer-name`}
                 value={values.customerName}
                 onChange={(event) => update("customerName", event.target.value)}
                 placeholder="e.g. Maria Santos"
@@ -325,9 +446,9 @@ export function ReservationFormModal({
             </div>
 
             <div>
-              <Label htmlFor="reservation-phone">Phone</Label>
+              <Label htmlFor={`${baseId}-phone`}>Phone</Label>
               <Input
-                id="reservation-phone"
+                id={`${baseId}-phone`}
                 type="tel"
                 value={values.phone}
                 onChange={(event) => update("phone", event.target.value)}
@@ -337,222 +458,288 @@ export function ReservationFormModal({
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="reservation-customer-address">Address</Label>
+              <Label htmlFor={`${baseId}-customer-address`}>Address</Label>
               <Input
-                id="reservation-customer-address"
+                id={`${baseId}-customer-address`}
                 value={values.customerAddress}
                 onChange={(event) => update("customerAddress", event.target.value)}
                 placeholder="Delivery address"
                 autoComplete="off"
               />
             </div>
+          </div>
 
-            <h3 className={`${sectionHeadingClass} mt-2`}>Item Details</h3>
-
-            <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4 sm:col-span-2">
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-foreground">Select where the item comes from</p>
-                <p className="mt-1 text-xs leading-5 text-muted">Use the Moissanite catalog dropdown to fill item details automatically, or choose manual entry for other products.</p>
+          {/* Items Section for Bulk Ordering */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-pink-light">
+                  Order Items ({values.items.length} {values.items.length === 1 ? "Item" : "Items"} — Bulk Ordering)
+                </h3>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="reservation-item-source">Item Source</Label>
-                  <select
-                    id="reservation-item-source"
-                    value={itemSource}
-                    onChange={(event) => {
-                      const source = event.target.value as "manual" | "moissanite";
-                      setItemSource(source);
-                      if (source === "manual") setSelectedInventoryId("");
-                      setError(null);
-                    }}
-                    className={selectClass}
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={handleAddItem}
+                className="gap-1.5"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                Add Item
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {values.items.map((item, index) => {
+                const itemTotal =
+                  Number.isFinite(parseNumber(item.quantity)) && Number.isFinite(parseNumber(item.price))
+                    ? round2(parseNumber(item.quantity) * parseNumber(item.price))
+                    : 0;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="relative rounded-xl border border-white/10 bg-white/[0.025] p-4 transition-all hover:border-white/20"
                   >
-                    <option value="manual">Manual Item</option>
-                    <option value="moissanite">Moissanite Catalog</option>
-                  </select>
-                </div>
-                {itemSource === "moissanite" ? (
-                  <div>
-                    <Label htmlFor="reservation-inventory-item">Moissanite Item</Label>
-                    <select
-                      id="reservation-inventory-item"
-                      value={selectedInventoryId}
-                      onChange={(event) => selectInventoryItem(event.target.value)}
-                      className={selectClass}
-                      disabled={inventoryLoading || Boolean(inventoryLoadError)}
-                      required
-                    >
-                      <option value="">{inventoryLoading ? "Loading catalog…" : "Select an item"}</option>
-                      {inventoryItems.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.sku} — {item.description || item.item_name} — {formatCurrency(item.selling_price)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-              </div>
-              {itemSource === "moissanite" && inventoryLoadError ? <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger" role="alert">{inventoryLoadError}</p> : null}
-              {itemSource === "moissanite" && !inventoryLoading && !inventoryLoadError && inventoryItems.length === 0 ? <p className="mt-3 text-xs text-muted">No Moissanite items are available. Add items under Moissanite Inventory first.</p> : null}
-              {selectedInventoryId ? (() => {
-                const selected = inventoryItems.find((item) => item.id === selectedInventoryId);
-                return selected ? (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-background/55 px-3 py-2.5">
-                    <div><p className="text-xs text-muted">Selected item</p><p className="mt-0.5 text-sm font-medium text-foreground">{selected.description || selected.item_name}</p></div>
-                    <div className="text-right"><p className="text-sm font-semibold text-pink-light">{formatCurrency(selected.selling_price)}</p><p className="mt-0.5 text-xs text-muted">{selected.setting || "Setting not specified"}</p></div>
-                  </div>
-                ) : null;
-              })() : null}
-            </div>
+                    <div className="flex items-center justify-between gap-2 mb-3 border-b border-white/5 pb-2">
+                      <span className="text-xs font-bold text-pink-light">
+                        Item #{index + 1}
+                      </span>
+                      {values.items.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          aria-label={`Remove item #${index + 1}`}
+                          className="flex items-center gap-1 text-xs text-danger/80 hover:text-danger transition-colors p-1 rounded hover:bg-danger/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                          <span>Remove</span>
+                        </button>
+                      ) : null}
+                    </div>
 
-            <div className="sm:col-span-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted">Reservation item values</p>
-            </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div>
+                        <Label htmlFor={`item-source-${item.id}`}>Source</Label>
+                        <select
+                          id={`item-source-${item.id}`}
+                          value={item.itemSource}
+                          onChange={(e) => {
+                            const source = e.target.value as "manual" | "moissanite";
+                            handleUpdateItem(index, "itemSource", source);
+                            if (source === "manual") {
+                              handleUpdateItem(index, "selectedInventoryId", "");
+                            }
+                          }}
+                          className={selectClass}
+                        >
+                          <option value="manual">Manual Item</option>
+                          <option value="moissanite">Moissanite Catalog</option>
+                        </select>
+                      </div>
 
-            <div>
-              <Label htmlFor="reservation-item-code">Item Code</Label>
-              <Input
-                id="reservation-item-code"
-                value={values.itemCode}
-                onChange={(event) => {
-                  setSelectedInventoryId("");
-                  setItemSource("manual");
-                  update("itemCode", event.target.value);
-                }}
-                placeholder="SKU / product code"
-                autoComplete="off"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reservation-item-name">Item Name</Label>
-              <Input
-                id="reservation-item-name"
-                value={values.itemName}
-                onChange={(event) => update("itemName", event.target.value)}
-                placeholder="Item being reserved"
-                autoComplete="off"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Label htmlFor="reservation-category">Category</Label>
-              <Input
-                id="reservation-category"
-                value={values.category}
-                onChange={(event) => update("category", event.target.value)}
-                placeholder="e.g. Pearls"
-                autoComplete="off"
-              />
+                      {item.itemSource === "moissanite" ? (
+                        <div className="sm:col-span-2">
+                          <Label htmlFor={`item-inventory-${item.id}`}>Moissanite Catalog Item</Label>
+                          <select
+                            id={`item-inventory-${item.id}`}
+                            value={item.selectedInventoryId}
+                            onChange={(e) => handleSelectInventoryItem(index, e.target.value)}
+                            className={selectClass}
+                            disabled={inventoryLoading || Boolean(inventoryLoadError)}
+                            required
+                          >
+                            <option value="">
+                              {inventoryLoading ? "Loading catalog…" : "Select a catalog item"}
+                            </option>
+                            {inventoryItems.map((inv) => (
+                              <option key={inv.id} value={inv.id}>
+                                {inv.sku} — {inv.description || inv.item_name} — {formatCurrency(inv.selling_price)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div>
+                          <Label htmlFor={`item-code-${item.id}`}>Item Code (SKU)</Label>
+                          <Input
+                            id={`item-code-${item.id}`}
+                            value={item.itemCode}
+                            onChange={(e) => handleUpdateItem(index, "itemCode", e.target.value)}
+                            placeholder="SKU / Item code"
+                            autoComplete="off"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <Label htmlFor={`item-name-${item.id}`}>Item Name</Label>
+                        <Input
+                          id={`item-name-${item.id}`}
+                          value={item.itemName}
+                          onChange={(e) => handleUpdateItem(index, "itemName", e.target.value)}
+                          placeholder="Item name / description"
+                          autoComplete="off"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor={`item-category-${item.id}`}>Category</Label>
+                        <Input
+                          id={`item-category-${item.id}`}
+                          value={item.category}
+                          onChange={(e) => handleUpdateItem(index, "category", e.target.value)}
+                          placeholder="e.g. Pearls, Ring"
+                          autoComplete="off"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor={`item-qty-${item.id}`}>Quantity</Label>
+                        <Input
+                          id={`item-qty-${item.id}`}
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={item.quantity}
+                          onChange={(e) => handleUpdateItem(index, "quantity", e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor={`item-price-${item.id}`}>Unit Price</Label>
+                        <Input
+                          id={`item-price-${item.id}`}
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={item.price}
+                          onChange={(e) => handleUpdateItem(index, "price", e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+
+                      <div className="flex flex-col justify-end">
+                        <Label>Line Total</Label>
+                        <div className="flex h-10 items-center justify-end rounded-lg border border-white/10 bg-white/[0.03] px-3 font-semibold text-pink-light">
+                          {formatCurrency(itemTotal)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-            <div>
-              <Label htmlFor="reservation-quantity">Quantity</Label>
-              <Input
-                id="reservation-quantity"
-                type="number"
-                min={1}
-                step={1}
-                value={values.quantity}
-                onChange={(event) => update("quantity", event.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="reservation-price">Price</Label>
-              <Input
-                id="reservation-price"
-                type="number"
-                min={0}
-                step="0.01"
-                value={values.price}
-                onChange={(event) => update("price", event.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reservation-discount">Discount</Label>
-              <Input
-                id="reservation-discount"
-                type="number"
-                min={0}
-                step="0.01"
-                value={values.discount}
-                onChange={(event) => update("discount", event.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reservation-amount">Amount</Label>
-              <Input
-                id="reservation-amount"
-                value={Number.isFinite(total) ? total.toFixed(2) : ""}
-                readOnly
-                disabled
-                aria-readonly="true"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reservation-shipping-fee">Shipping Fee</Label>
-              <Input
-                id="reservation-shipping-fee"
-                type="number"
-                min={0}
-                step="0.01"
-                value={values.shippingFee}
-                onChange={(event) => update("shippingFee", event.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reservation-downpayment">Downpayment (DP)</Label>
-              <Input
-                id="reservation-downpayment"
-                type="number"
-                min={0}
-                step="0.01"
-                value={values.downpayment}
-                onChange={(event) => update("downpayment", event.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            {needsDownpaymentMethod ? (
+          {/* Pricing & Downpayment Breakdown */}
+          <div className="space-y-4 border-t border-white/[0.07] pt-4">
+            <h3 className={sectionHeadingClass}>Payment & Totals</h3>
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               <div>
-                <Label htmlFor="reservation-downpayment-method">DP Payment Method</Label>
-                <select
-                  id="reservation-downpayment-method"
-                  value={values.downpaymentMethod}
-                  onChange={(event) => update("downpaymentMethod", event.target.value)}
-                  required
-                  className={selectClass}
-                >
-                  <option value="">Select method</option>
-                  {PAYMENT_METHODS.map((method) => (
-                    <option key={method} value={method}>{method}</option>
-                  ))}
-                </select>
+                <Label htmlFor={`${baseId}-subtotal`}>Subtotal (Items)</Label>
+                <Input
+                  id={`${baseId}-subtotal`}
+                  value={hasValidItems ? formatCurrency(subtotal) : "—"}
+                  readOnly
+                  disabled
+                  aria-readonly="true"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor={`${baseId}-discount`}>Discount</Label>
+                <Input
+                  id={`${baseId}-discount`}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={values.discount}
+                  onChange={(event) => update("discount", event.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor={`${baseId}-shipping-fee`}>Shipping Fee</Label>
+                <Input
+                  id={`${baseId}-shipping-fee`}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={values.shippingFee}
+                  onChange={(event) => update("shippingFee", event.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor={`${baseId}-grand-total`}>Total Amount</Label>
+                <Input
+                  id={`${baseId}-grand-total`}
+                  value={hasValidItems ? formatCurrency(grandTotal) : "—"}
+                  readOnly
+                  disabled
+                  aria-readonly="true"
+                  className="font-bold text-pink-light"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor={`${baseId}-downpayment`}>Downpayment (DP)</Label>
+                <Input
+                  id={`${baseId}-downpayment`}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={values.downpayment}
+                  onChange={(event) => update("downpayment", event.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              {needsDownpaymentMethod ? (
+                <div className="sm:col-span-2">
+                  <Label htmlFor={`${baseId}-downpayment-method`}>DP Payment Method</Label>
+                  <select
+                    id={`${baseId}-downpayment-method`}
+                    value={values.downpaymentMethod}
+                    onChange={(event) => update("downpaymentMethod", event.target.value)}
+                    required
+                    className={selectClass}
+                  >
+                    <option value="">Select payment method</option>
+                    {PAYMENT_METHODS.map((method) => (
+                      <option key={method} value={method}>{method}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
+
+            {mode === "edit" ? (
+              <p className="text-xs text-muted">
+                Increasing DP records only the difference as a new payment. Existing payment history cannot be reduced or overwritten.
+              </p>
+            ) : null}
+
+            {hasValidItems ? (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted">
+                  Remaining Balance:{" "}
+                  <strong className="text-foreground">
+                    {formatCurrency(Math.max(0, grandTotal - (parseNumber(values.downpayment) || 0)))}
+                  </strong>
+                </span>
+                {parseNumber(values.discount) > 0 ? (
+                  <span className="text-xs text-muted">
+                    Discount applied: −{formatCurrency(parseNumber(values.discount))}
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>
-
-          {mode === "edit" ? (
-            <p className="text-xs text-muted">
-              Increasing DP records only the difference as a new payment. Existing payment history cannot be reduced or overwritten.
-            </p>
-          ) : null}
-
-          {Number.isFinite(total) && values.price !== "" ? (
-            <p className="text-sm text-muted">
-              Total after discount:{" "}
-              <span className="font-semibold text-foreground">
-                {formatCurrency(total)}
-              </span>
-              {parseNumber(values.discount) > 0 ? (
-                <> (discount −{formatCurrency(parseNumber(values.discount))})</>
-              ) : null}
-            </p>
-          ) : null}
 
           {error ? (
             <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">

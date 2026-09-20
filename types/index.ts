@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "staff" | "viewer";
+export type UserRole = "owner" | "admin" | "staff" | "viewer";
 
 export interface Profile {
   id: string;
@@ -87,16 +87,26 @@ export interface PaymentEvidence {
   created_at: string;
 }
 
+export interface ReservationLineItemInput {
+  id?: string;
+  itemName: string;
+  itemCode?: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface ReservationInput {
   invoiceNumber?: string;
   fbName?: string;
   customerName: string;
   customerAddress: string;
   phone: string;
-  itemName: string;
-  itemCode: string;
-  category: string;
-  quantity: number;
+  items?: ReservationLineItemInput[];
+  itemName?: string;
+  itemCode?: string;
+  category?: string;
+  quantity?: number;
   amount: number;
   discount: number;
   shippingFee: number;
@@ -161,6 +171,16 @@ export interface Commission {
       name: string;
       fb_name?: string | null;
     } | null;
+    items?: {
+      id: string;
+      quantity: number;
+      unit_price: number;
+      line_total: number;
+      product?: {
+        name: string;
+        sku?: string | null;
+      } | null;
+    }[];
   } | null;
 }
 

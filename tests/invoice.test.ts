@@ -76,10 +76,18 @@ describe("buildInvoiceSummary", () => {
 });
 
 describe("invoice transaction and status labels", () => {
-  it("detects normal COD from the stored reservation type", () => {
+  it("detects COD when not fully paid yet and labels it COD", () => {
     const order = makeOrder({ reservation_type: "cod" });
-    expect(getInvoiceTransactionLabel(order)).toBe("CASH ON DELIVERY (COD)");
+    expect(getInvoiceTransactionLabel(order)).toBe("COD");
     expect(getInvoiceStatusLabel(order)).toBe("COD");
+
+    // Also when payment method is COD with partial downpayment
+    const partialCodPayment = makeOrder({
+      reservation_type: "regular",
+      payments: [{ kind: "downpayment", amount: 300, payment_method: "COD" }],
+    });
+    expect(getInvoiceTransactionLabel(partialCodPayment)).toBe("COD");
+    expect(getInvoiceStatusLabel(partialCodPayment)).toBe("COD");
   });
 
   it("detects Pasabuy COD from Pasabuy plus a remaining paid-on-delivery balance", () => {
@@ -96,7 +104,7 @@ describe("invoice transaction and status labels", () => {
     expect(getInvoiceTransactionLabel(order)).toBe("PASABUY COD");
   });
 
-  it("gives fully paid precedence over reservation type", () => {
+  it("gives fully paid precedence over reservation type when balance is zero", () => {
     const paidPasabuy = makeOrder({
       reservation_type: "pasabuy",
       payments: [{ kind: "balance", amount: 1000 }],

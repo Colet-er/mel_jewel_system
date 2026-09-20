@@ -13,9 +13,10 @@ const validInput = {
 };
 
 describe("validatePaymentInput", () => {
-  it("requires a positive amount and a real payment method", () => {
-    expect(validatePaymentInput({ ...validInput, amount: 0 })).toBe(
-      "Payment amount must be greater than zero."
+  it("requires a non-negative amount and a real payment method", () => {
+    expect(validatePaymentInput({ ...validInput, amount: 0 })).toBeNull();
+    expect(validatePaymentInput({ ...validInput, amount: -1 })).toBe(
+      "Payment amount must be greater than or equal to zero."
     );
     expect(validatePaymentInput({ ...validInput, method: "" })).toBe(
       "Select a valid payment method."

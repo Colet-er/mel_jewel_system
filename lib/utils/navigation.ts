@@ -39,7 +39,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Other",
     items: [
       { label: "Commission", href: "/commission", icon: "credit-card" },
-      { label: "Collections", href: "/collections", icon: "dollar-sign" },
     ],
   },
   {
@@ -53,9 +52,9 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    items: [{ label: "Reports", href: "/reports", icon: "trending-up" }],
-  },
-  {
-    items: [{ label: "Settings", href: "/settings", icon: "settings" }],
+    label: "Developer",
+    items: [
+      { label: "Account Management", href: "/accounts", icon: "user-cog" },
+    ],
   },
 ];

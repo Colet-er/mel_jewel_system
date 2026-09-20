@@ -11,24 +11,55 @@ const UNSAFE_ITEM_CHARS = /[<>{}\\]/;
 
 export function validateReservationInput(input: ReservationInput): string | null {
   if (!input.customerName.trim()) return "Customer name is required.";
-  if (!input.itemName.trim()) return "Item name is required.";
-  if (!ALPHANUMERIC.test(input.itemName)) {
-    return "Item name must contain at least one letter or number.";
-  }
-  if (UNSAFE_ITEM_CHARS.test(input.itemName)) {
-    return "Item name cannot contain <, >, {, }, or backslash characters.";
-  }
-  if (input.itemCode.trim()) {
-    if (!ALPHANUMERIC.test(input.itemCode)) {
-      return "Item code must contain at least one letter or number.";
+
+  if (input.items && input.items.length > 0) {
+    for (const item of input.items) {
+      if (!item.itemName.trim()) return "Item name is required.";
+      if (!ALPHANUMERIC.test(item.itemName)) {
+        return "Item name must contain at least one letter or number.";
+      }
+      if (UNSAFE_ITEM_CHARS.test(item.itemName)) {
+        return "Item name cannot contain <, >, {, }, or backslash characters.";
+      }
+      if (item.itemCode && item.itemCode.trim()) {
+        if (!ALPHANUMERIC.test(item.itemCode)) {
+          return "Item code must contain at least one letter or number.";
+        }
+        if (UNSAFE_ITEM_CHARS.test(item.itemCode)) {
+          return "Item code cannot contain <, >, {, }, or backslash characters.";
+        }
+      }
+      if (!Number.isFinite(item.quantity) || item.quantity < 1) {
+        return "Quantity must be at least 1.";
+      }
+      if (!Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
+        return "Price cannot be negative.";
+      }
     }
-    if (UNSAFE_ITEM_CHARS.test(input.itemCode)) {
-      return "Item code cannot contain <, >, {, }, or backslash characters.";
+  } else {
+    const itemName = input.itemName ?? "";
+    const itemCode = input.itemCode ?? "";
+    if (!itemName.trim()) return "Item name is required.";
+    if (!ALPHANUMERIC.test(itemName)) {
+      return "Item name must contain at least one letter or number.";
+    }
+    if (UNSAFE_ITEM_CHARS.test(itemName)) {
+      return "Item name cannot contain <, >, {, }, or backslash characters.";
+    }
+    if (itemCode.trim()) {
+      if (!ALPHANUMERIC.test(itemCode)) {
+        return "Item code must contain at least one letter or number.";
+      }
+      if (UNSAFE_ITEM_CHARS.test(itemCode)) {
+        return "Item code cannot contain <, >, {, }, or backslash characters.";
+      }
+    }
+    const qty = input.quantity ?? 1;
+    if (!Number.isFinite(qty) || qty < 1) {
+      return "Quantity must be at least 1.";
     }
   }
-  if (!Number.isFinite(input.quantity) || input.quantity < 1) {
-    return "Quantity must be at least 1.";
-  }
+
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
     return "Amount must be greater than zero.";
   }

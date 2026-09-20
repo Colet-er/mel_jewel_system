@@ -31,7 +31,15 @@ interface SoldMoissaniteRow {
 }
 
 function invoiceLink(row: SoldMoissaniteRow) {
-  return row.orderId ? <Link href={`/orders/${row.orderId}/invoice`} className={buttonVariants({ variant: "secondary", size: "sm" })}><Eye className="h-3.5 w-3.5" aria-hidden />Invoice</Link> : null;
+  return row.orderId ? (
+    <Link
+      href={`/orders/${row.orderId}/invoice`}
+      className={buttonVariants({ variant: "secondary", size: "sm" })}
+    >
+      <Eye className="h-4 w-4" aria-hidden />
+      View Invoice
+    </Link>
+  ) : null;
 }
 
 const COLUMNS: Column<SoldMoissaniteRow>[] = [
@@ -42,7 +50,7 @@ const COLUMNS: Column<SoldMoissaniteRow>[] = [
   { key: "sellingPrice", header: "Unit Price", className: "text-right", render: (row) => formatCurrency(row.sellingPrice) },
   { key: "totalAmount", header: "Total", className: "text-right", render: (row) => <span className="font-semibold text-pink-light">{formatCurrency(row.totalAmount)}</span> },
   { key: "status", header: "Status", render: (row) => <SoldMoissaniteStatusBadge status={row.status} /> },
-  { key: "invoice", header: "View", render: invoiceLink },
+  { key: "invoice", header: "Action", className: "text-right whitespace-nowrap", render: invoiceLink },
 ];
 
 const CSV_HEADERS = ["Date Sold", "Invoice No.", "Item Number", "Item Description", "Customer", "Quantity", "Unit Price", "Total", "Status"];

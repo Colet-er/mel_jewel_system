@@ -9,7 +9,11 @@ import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError } from "@/components/ui/input";
 
-export function LoginForm() {
+interface LoginFormProps {
+  redirectTo?: string;
+}
+
+export function LoginForm({ redirectTo = "/dashboard" }: LoginFormProps = {}) {
   const router = useRouter();
   const [values, setValues] = useState<LoginInput>({ email: "", password: "" });
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof LoginInput, string>>>({});
@@ -58,7 +62,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(redirectTo);
     router.refresh();
   }
 
@@ -120,12 +124,12 @@ export function LoginBrand() {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <Image
-        src="/daily-pearls-ph.jpg"
+        src="/images/a_clean_graphic_logo_on_a_transparent_background.png"
         alt="Daily Pearls Ph"
-        width={1024}
-        height={1024}
+        width={160}
+        height={160}
         priority
-        className="h-36 w-36 rounded-3xl object-cover shadow-[0_16px_45px_rgba(255,61,141,0.18)] ring-1 ring-white/10 sm:h-40 sm:w-40"
+        className="h-32 w-32 object-contain drop-shadow-[0_10px_25px_rgba(255,61,141,0.3)] sm:h-36 sm:w-36"
       />
       <p className="text-sm font-medium tracking-wide text-muted">Order Management</p>
     </div>

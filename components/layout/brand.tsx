@@ -1,17 +1,35 @@
-import { Package } from "lucide-react";
+import Image from "next/image";
+import { cn } from "@/lib/utils/cn";
 
-export function Brand() {
+export function Brand({ collapsed }: { collapsed?: boolean }) {
   return (
-    <div className="flex items-center gap-3 border-b border-white/5 px-5 py-[18px]">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-hover text-white shadow-[0_8px_24px_rgba(255,61,141,0.28)] ring-1 ring-white/15">
-        <Package className="h-5 w-5" aria-hidden />
+    <div
+      className={cn(
+        "flex h-16 items-center border-b border-border transition-all duration-200",
+        collapsed ? "justify-center px-2" : "gap-3 px-5"
+      )}
+    >
+      <div
+        title="Daily Pearls PH"
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary/20 bg-primary/10 p-1"
+      >
+        <Image
+          src="/images/a_clean_graphic_logo_on_a_transparent_background.png"
+          alt="Daily Pearls PH Logo"
+          width={32}
+          height={32}
+          className="h-full w-full object-contain"
+          priority
+        />
       </div>
-      <div className="min-w-0 leading-tight">
-        <p className="truncate text-sm font-bold tracking-[0.08em] text-foreground">
-          DAILY PEARLS PH
-        </p>
-        <p className="text-xs text-muted">Order Management</p>
-      </div>
+      {!collapsed ? (
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-xs font-bold tracking-[0.1em] text-foreground">
+            DAILY PEARLS PH
+          </p>
+          <p className="text-[11px] text-muted">Order Management</p>
+        </div>
+      ) : null}
     </div>
   );
 }

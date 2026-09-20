@@ -10,13 +10,13 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
   return (
-    <div className={cn("flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between", className)}>
-      <div className="relative pl-4">
-        <span className="absolute inset-y-1 left-0 w-1 rounded-full bg-gradient-to-b from-primary to-pink-light" aria-hidden />
-        <h1 className="text-xl font-semibold tracking-[-0.025em] text-foreground sm:text-2xl">
+    <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", className)}>
+      <div className="relative pl-3">
+        <span className="absolute inset-y-0.5 left-0 w-[3px] rounded-full bg-primary" aria-hidden />
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           {title}
         </h1>
-        {description ? <p className="mt-1.5 text-sm leading-relaxed text-muted">{description}</p> : null}
+        {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2.5">{actions}</div> : null}
     </div>

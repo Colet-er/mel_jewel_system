@@ -3,6 +3,7 @@ import { getUserOrNull } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { UnauthorizedState } from "@/components/ui/unauthorized-state";
+import { isDeveloperEmail } from "@/lib/auth/developer";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const role = profile?.role ?? user.user_metadata?.role ?? "unknown";
 
   return (
-    <DashboardShell email={email} fullName={fullName} role={role}>
+    <DashboardShell
+      email={email}
+      fullName={fullName}
+      role={role}
+      developerAccess={isDeveloperEmail(email)}
+    >
       {children}
     </DashboardShell>
   );

@@ -327,14 +327,26 @@ const COMMISSION_SELECT = `
   date,
   related_order_id,
   description,
-  setting,
   amount,
   status,
   notes,
   created_by,
   created_at,
   updated_at,
-  related_order:orders ( id, order_number, status, total_amount, customer:customers ( name, fb_name ) )
+  related_order:orders (
+    id,
+    order_number,
+    status,
+    total_amount,
+    customer:customers ( name, fb_name ),
+    items:order_items (
+      id,
+      quantity,
+      unit_price,
+      line_total,
+      product:products ( name, sku )
+    )
+  )
 `;
 
 export async function fetchCommissions(filter: CommissionFilter = {}): Promise<Commission[]> {

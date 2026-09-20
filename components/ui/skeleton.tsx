@@ -1,14 +1,14 @@
 import { cn } from "@/lib/utils/cn";
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("animate-pulse rounded-lg bg-elevated", className)} />;
+  return <div aria-hidden className={cn("animate-pulse rounded-md bg-elevated", className)} />;
 }
 
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-card p-5">
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="mt-3 h-7 w-32" />
+    <div className="rounded-xl border border-border bg-card p-5">
+      <Skeleton className="h-3.5 w-24" />
+      <Skeleton className="mt-3 h-8 w-28" />
     </div>
   );
 }

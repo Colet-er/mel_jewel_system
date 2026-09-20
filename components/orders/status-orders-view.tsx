@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, Package, ShieldCheck } from "lucide-react";
+import { Eye, Package } from "lucide-react";
 import type { Order, OrderStatus } from "@/types";
 import { describeDbError, fetchOrders, settledDownpayment } from "@/lib/supabase/queries";
 import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
@@ -10,10 +10,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { ExportButton } from "@/components/filters/export-button";
 import { SearchInput } from "@/components/filters/search-input";
-import { ShipOrderButton } from "@/components/orders/ship-order-button";
-import { ClaimOrderButton } from "@/components/orders/claim-order-button";
-import { RtoOrderButton } from "@/components/orders/rto-order-button";
+import { StatusManageMenu } from "@/components/orders/status-manage-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { buttonVariants } from "@/components/ui/button";
 
 export type StatusViewKind = "paid" | "shipped" | "claimed" | "cancelled" | "rto";
 
@@ -35,6 +34,7 @@ interface StatusRow {
   qty: number;
   amount: number;
   totalPaid: number;
+  balance: number;
   dpPaid: number;
   type: string;
   cancellationReason: string;
@@ -91,12 +91,25 @@ const META: Record<
 };
 
 function buildRow(order: Order, kind: StatusViewKind): StatusRow {
-  const firstItem = (order.items ?? [])[0];
+  const itemsList = order.items ?? [];
   const dpPaid = settledDownpayment(order);
   const totalPayments = (order.payments ?? []).reduce(
     (sum, payment) => sum + Number(payment.amount),
     0
   );
+  const orderTotal = Math.round(
+    ((Number(order.total_amount) + Number(order.shipping_fee ?? 0)) + Number.EPSILON) * 100
+  ) / 100;
+  const balance = Math.max(0, Math.round((orderTotal - totalPayments + Number.EPSILON) * 100) / 100);
+
+  const itemNameDisplay =
+    itemsList.length === 0
+      ? "—"
+      : itemsList.length === 1
+        ? (itemsList[0].product?.name ?? "—")
+        : itemsList
+            .map((item) => `${item.product?.name ?? "Item"} (x${item.quantity})`)
+            .join(", ");
 
   // Fall back to the last update so legacy rows without a stamped
   // lifecycle timestamp still show a sensible date.
@@ -119,10 +132,11 @@ function buildRow(order: Order, kind: StatusViewKind): StatusRow {
     customerName: order.customer?.name ?? "—",
     phone: order.customer?.phone || "—",
     address: order.customer?.address || "—",
-    itemName: firstItem?.product?.name ?? "—",
+    itemName: itemNameDisplay,
     qty: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0),
-    amount: Number(order.total_amount),
+    amount: orderTotal,
     totalPaid: totalPayments,
+    balance,
     dpPaid,
     type: formatReservationType(order.reservation_type),
     cancellationReason: order.cancellation_reason || "—",
@@ -136,33 +150,54 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
   const invoiceColumn: Column<StatusRow> = {
     key: "invoiceNumber",
     header: "Invoice No.",
-    render: (row) => <span className="font-medium text-pink-light">{row.invoiceNumber}</span>,
+    render: (row) => <span className="whitespace-nowrap font-medium text-pink-light">{row.invoiceNumber}</span>,
   };
   const fbNameColumn: Column<StatusRow> = {
     key: "fbName",
     header: "FB Name",
-    render: (row) => <span className="text-muted">{row.fbName}</span>,
+    render: (row) => (
+      <div className="max-w-[100px] lg:max-w-[130px] truncate text-muted" title={row.fbName}>
+        {row.fbName}
+      </div>
+    ),
   };
   const customerColumn: Column<StatusRow> = {
     key: "customerName",
     header: "Customer",
-    render: (row) => row.customerName,
+    render: (row) => (
+      <div className="max-w-[120px] lg:max-w-[160px] truncate font-medium" title={row.customerName}>
+        {row.customerName}
+      </div>
+    ),
   };
   const itemColumn: Column<StatusRow> = {
     key: "itemName",
     header: "Item",
-    render: (row) => row.itemName,
+    render: (row) => (
+      <div className="max-w-[150px] lg:max-w-[220px] truncate" title={row.itemName}>
+        {row.itemName}
+      </div>
+    ),
+  };
+  const addressColumn: Column<StatusRow> = {
+    key: "address",
+    header: "Address",
+    render: (row) => (
+      <div className="max-w-[140px] lg:max-w-[200px] truncate text-muted" title={row.address}>
+        {row.address}
+      </div>
+    ),
   };
   const qtyColumn: Column<StatusRow> = {
     key: "qty",
     header: "Qty",
-    className: "text-right",
+    className: "text-right whitespace-nowrap",
     render: (row) => row.qty.toLocaleString("en-US"),
   };
   const amountColumn: Column<StatusRow> = {
     key: "amount",
     header: "Amount",
-    className: "text-right",
+    className: "text-right whitespace-nowrap",
     render: (row) => formatCurrency(row.amount),
   };
   const typeColumn: Column<StatusRow> = {
@@ -176,24 +211,25 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
     render: (row) => <StatusBadge status={row.status} />,
   };
 
+  const actionColumn: Column<StatusRow> = {
+    key: "action",
+    header: "Action",
+    className: "text-right whitespace-nowrap",
+    render: (row) => (
+      <span className="inline-flex items-center justify-end gap-2">
+        <Link
+          href={`/orders/${row.id}/invoice`}
+          className={buttonVariants({ variant: "secondary", size: "sm" })}
+        >
+          <Eye className="h-4 w-4" aria-hidden />
+          View Invoice
+        </Link>
+        <StatusManageMenu row={row} kind={kind} />
+      </span>
+    ),
+  };
+
   if (kind === "paid") {
-    const actionColumn: Column<StatusRow> = {
-      key: "action",
-      header: "Action",
-      className: "text-right",
-      render: (row) => (
-        <span className="inline-flex items-center justify-end gap-3">
-          <Link
-            href={`/orders/${row.id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-pink-light transition-colors hover:text-primary"
-          >
-            <Eye className="h-4 w-4" aria-hidden />
-            View Order
-          </Link>
-          <ShipOrderButton orderId={row.id} />
-        </span>
-      ),
-    };
     return [
       { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
       invoiceColumn,
@@ -206,7 +242,7 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
       {
         key: "totalPaid",
         header: "Total Paid",
-        className: "text-right",
+        className: "text-right whitespace-nowrap",
         render: (row) => formatCurrency(row.totalPaid),
       },
       typeColumn,
@@ -216,34 +252,31 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
   }
 
   if (kind === "shipped") {
-    const actionColumn: Column<StatusRow> = {
-      key: "action",
-      header: "Action",
-      className: "text-right",
-      render: (row) => (
-        <span className="inline-flex items-center justify-end gap-3">
-          <Link
-            href={`/orders/${row.id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-pink-light transition-colors hover:text-primary"
-          >
-            <Eye className="h-4 w-4" aria-hidden />
-            View Order
-          </Link>
-          <ClaimOrderButton orderId={row.id} status={row.status} />
-          <RtoOrderButton orderId={row.id} invoiceNumber={row.invoiceNumber} />
-        </span>
-      ),
-    };
     return [
       { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
       invoiceColumn,
       fbNameColumn,
       customerColumn,
-      { key: "address", header: "Address", render: (row) => row.address },
       { key: "phone", header: "Phone", render: (row) => row.phone },
+      addressColumn,
       itemColumn,
       qtyColumn,
       amountColumn,
+      {
+        key: "totalPaid",
+        header: "Paid",
+        className: "text-right whitespace-nowrap",
+        render: (row) => (
+          <div className="text-right">
+            <span className="font-semibold text-foreground">{formatCurrency(row.totalPaid)}</span>
+            {row.balance > 0 ? (
+              <div className="text-[11px] font-medium text-amber-400">Not Fully Paid</div>
+            ) : (
+              <div className="text-[11px] font-medium text-emerald-400">Fully Paid</div>
+            )}
+          </div>
+        ),
+      },
       typeColumn,
       statusColumn,
       actionColumn,
@@ -251,29 +284,13 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
   }
 
   if (kind === "claimed") {
-    const actionColumn: Column<StatusRow> = {
-      key: "action",
-      header: "Action",
-      className: "text-right",
-      render: (row) => (
-        <span className="inline-flex items-center justify-end gap-3">
-          <Link
-            href={`/orders/${row.id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-pink-light transition-colors hover:text-primary"
-          >
-            <ShieldCheck className="h-4 w-4" aria-hidden />
-            View Order
-          </Link>
-        </span>
-      ),
-    };
     return [
       { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
       invoiceColumn,
       fbNameColumn,
       customerColumn,
       { key: "phone", header: "Phone", render: (row) => row.phone },
-      { key: "address", header: "Address", render: (row) => row.address },
+      addressColumn,
       itemColumn,
       qtyColumn,
       amountColumn,
@@ -284,29 +301,13 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
   }
 
   if (kind === "rto") {
-    const actionColumn: Column<StatusRow> = {
-      key: "action",
-      header: "Action",
-      className: "text-right",
-      render: (row) => (
-        <span className="inline-flex items-center justify-end gap-3">
-          <Link
-            href={`/orders/${row.id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-pink-light transition-colors hover:text-primary"
-          >
-            <Eye className="h-4 w-4" aria-hidden />
-            View Order
-          </Link>
-        </span>
-      ),
-    };
     return [
       { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
       invoiceColumn,
       fbNameColumn,
       customerColumn,
       { key: "phone", header: "Phone", render: (row) => row.phone },
-      { key: "address", header: "Address", render: (row) => row.address },
+      addressColumn,
       itemColumn,
       qtyColumn,
       amountColumn,
@@ -325,22 +326,6 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
     ];
   }
 
-  const actionColumn: Column<StatusRow> = {
-    key: "action",
-    header: "Action",
-    className: "text-right",
-    render: (row) => (
-      <span className="inline-flex items-center justify-end gap-3">
-        <Link
-          href={`/orders/${row.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-pink-light transition-colors hover:text-primary"
-        >
-          <Eye className="h-4 w-4" aria-hidden />
-          View Order
-        </Link>
-      </span>
-    ),
-  };
   return [
     { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
     invoiceColumn,
@@ -352,7 +337,7 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
     {
       key: "dpPaid",
       header: "DP",
-      className: "text-right",
+      className: "text-right whitespace-nowrap",
       render: (row) => formatCurrency(row.dpPaid),
     },
     typeColumn,
@@ -373,6 +358,7 @@ const CSV_BASE_HEADERS = [
   "Qty",
   "Amount",
   "Total Paid",
+  "Balance",
   "DP",
   "Type",
   "Cancellation Reason",
@@ -393,6 +379,7 @@ function toCsvRow(row: StatusRow): (string | number)[] {
     row.qty,
     row.amount,
     row.totalPaid,
+    row.balance,
     row.dpPaid,
     row.type,
     row.cancellationReason,

@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   "/categories",
   "/reports",
   "/settings",
+  "/accounts",
 ];
 
 export async function proxy(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = path.startsWith("/accounts") ? "/developer/login" : "/login";
     url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
@@ -50,6 +51,13 @@ export async function proxy(request: NextRequest) {
   if (user && path === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  if (user && path === "/developer/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/accounts";
     url.search = "";
     return NextResponse.redirect(url);
   }

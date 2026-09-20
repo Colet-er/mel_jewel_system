@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { ReservationType } from "@/types";
+import type { ReservationInput, ReservationLineItemInput } from "@/types";
 import { validateReservationInput, round2, mapRpcError } from "@/lib/utils/reservation-validation";
 import {
   PAYMENT_EVIDENCE_BUCKET,
@@ -27,6 +27,7 @@ export type PaymentFormResult =
       totalPaid: number;
       remainingBalance: number;
       fullyPaid: boolean;
+      shipped?: boolean;
       evidenceCount: number;
     }
   | { ok: false; message: string; paymentRecorded?: boolean };
@@ -35,24 +36,7 @@ export type RtoActionResult =
   | { ok: true }
   | { ok: false; message: string };
 
-export interface ReservationInput {
-  /** Blank on create — the database assigns the next daily number. */
-  invoiceNumber?: string;
-  fbName?: string;
-  customerName: string;
-  customerAddress: string;
-  phone: string;
-  itemName: string;
-  itemCode: string;
-  category: string;
-  quantity: number;
-  amount: number;
-  discount: number;
-  shippingFee: number;
-  downpayment: number;
-  downpaymentMethod: string;
-  type: ReservationType;
-}
+export type { ReservationInput, ReservationLineItemInput };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -126,8 +110,8 @@ export async function recordReservationPayment(
   if (!order) {
     return { ok: false, message: "Reservation not found." };
   }
-  if (order.status !== "reserved") {
-    return { ok: false, message: "Payments can only be recorded for active reservations." };
+  if (order.status === "cancelled") {
+    return { ok: false, message: "Payments cannot be recorded for cancelled orders." };
   }
 
   const reservationTotal = roundPaymentAmount(
@@ -222,14 +206,18 @@ export async function recordReservationPayment(
     }
   }
 
+  const isShipped = order.status === "reserved" && method === "COD" && amount === 0;
+
   revalidateReservationPaths();
   if (payment.fully_paid) revalidatePath("/orders/paid");
+  if (isShipped) revalidatePath("/orders/shipped");
 
   return {
     ok: true,
     totalPaid: Number(payment.total_paid),
     remainingBalance: Number(payment.remaining_balance),
     fullyPaid: payment.fully_paid,
+    shipped: isShipped,
     evidenceCount: uploadedPaths.length,
   };
 }
@@ -270,7 +258,11 @@ export async function archiveSelectedOrders(rawIds: string[]): Promise<BulkActio
 
 function revalidateReservationPaths() {
   revalidatePath("/orders/reserved");
+  revalidatePath("/orders/paid");
+  revalidatePath("/orders/shipped");
+  revalidatePath("/orders/claimed");
   revalidatePath("/orders");
+  revalidatePath("/collections");
   revalidatePath("/dashboard");
 }
 
@@ -286,19 +278,34 @@ export async function createReservation(
   const supabase = await createClient();
 
   try {
-    const quantity = Math.floor(input.quantity);
-    // RPC expects p_price to be the raw unit price (before discount)
-    const rawUnitPrice = round2(input.amount / quantity);
+    const hasItemsArray = Array.isArray(input.items) && input.items.length > 0;
+    const firstItem = hasItemsArray ? input.items![0] : null;
+    const totalQuantity = hasItemsArray
+      ? input.items!.reduce((sum, item) => sum + Math.max(1, Math.floor(item.quantity)), 0)
+      : Math.max(1, Math.floor(input.quantity ?? 1));
+    const rawUnitPrice = hasItemsArray
+      ? round2(firstItem!.unitPrice)
+      : round2(input.amount / totalQuantity);
+
+    const itemsPayload = hasItemsArray
+      ? input.items!.map((it) => ({
+          item_name: it.itemName.trim(),
+          item_code: it.itemCode?.trim() || null,
+          category_name: it.category?.trim() || null,
+          quantity: Math.max(1, Math.floor(it.quantity)),
+          price: round2(it.unitPrice),
+        }))
+      : null;
 
     const payload = {
       p_fb_name: input.fbName?.trim() || null,
       p_customer_name: input.customerName.trim(),
       p_customer_address: input.customerAddress.trim() || null,
       p_phone: input.phone.trim() || null,
-      p_item_name: input.itemName.trim(),
-      p_item_code: input.itemCode.trim() || null,
-      p_category_name: input.category.trim() || null,
-      p_quantity: quantity,
+      p_item_name: (firstItem?.itemName ?? input.itemName ?? "").trim(),
+      p_item_code: (firstItem?.itemCode ?? input.itemCode ?? "").trim() || null,
+      p_category_name: (firstItem?.category ?? input.category ?? "").trim() || null,
+      p_quantity: totalQuantity,
       p_price: rawUnitPrice,
       p_discount: round2(input.discount),
       p_shipping_fee: round2(input.shippingFee),
@@ -306,6 +313,7 @@ export async function createReservation(
       p_downpayment_method:
         input.downpayment > 0 ? input.downpaymentMethod : null,
       p_type: input.type,
+      p_items: itemsPayload,
     };
 
     const { data, error } = await supabase.rpc("create_reservation", payload);
@@ -343,24 +351,42 @@ export async function updateReservation(
   const supabase = await createClient();
 
   try {
-    const quantity = Math.floor(input.quantity);
-    const rawUnitPrice = round2(input.amount / quantity);
+    const hasItemsArray = Array.isArray(input.items) && input.items.length > 0;
+    const firstItem = hasItemsArray ? input.items![0] : null;
+    const totalQuantity = hasItemsArray
+      ? input.items!.reduce((sum, item) => sum + Math.max(1, Math.floor(item.quantity)), 0)
+      : Math.max(1, Math.floor(input.quantity ?? 1));
+    const rawUnitPrice = hasItemsArray
+      ? round2(firstItem!.unitPrice)
+      : round2(input.amount / totalQuantity);
+
+    const itemsPayload = hasItemsArray
+      ? input.items!.map((it) => ({
+          item_name: it.itemName.trim(),
+          item_code: it.itemCode?.trim() || null,
+          category_name: it.category?.trim() || null,
+          quantity: Math.max(1, Math.floor(it.quantity)),
+          price: round2(it.unitPrice),
+        }))
+      : null;
+
     const { error } = await supabase.rpc("update_reservation", {
       p_order_id: orderId,
       p_fb_name: input.fbName?.trim() || null,
       p_customer_name: input.customerName.trim(),
       p_customer_address: input.customerAddress.trim() || null,
       p_phone: input.phone.trim() || null,
-      p_item_name: input.itemName.trim(),
-      p_item_code: input.itemCode.trim() || null,
-      p_category_name: input.category.trim() || null,
-      p_quantity: quantity,
+      p_item_name: (firstItem?.itemName ?? input.itemName ?? "").trim(),
+      p_item_code: (firstItem?.itemCode ?? input.itemCode ?? "").trim() || null,
+      p_category_name: (firstItem?.category ?? input.category ?? "").trim() || null,
+      p_quantity: totalQuantity,
       p_price: rawUnitPrice,
       p_discount: round2(input.discount),
       p_shipping_fee: round2(input.shippingFee),
       p_downpayment: round2(input.downpayment),
       p_downpayment_method: input.downpaymentMethod || null,
       p_type: input.type,
+      p_items: itemsPayload,
     });
     if (error) return { ok: false, message: mapRpcError(error) };
 
@@ -433,8 +459,10 @@ export async function shipSelectedOrders(rawIds: string[]): Promise<BulkActionRe
   }
 
   if (succeeded.length > 0) {
+    revalidatePath("/orders/reserved");
     revalidatePath("/orders/paid");
     revalidatePath("/orders/shipped");
+    revalidatePath("/orders/rto");
     revalidatePath("/dashboard");
   }
 

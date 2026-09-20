@@ -1,4 +1,5 @@
-import { DollarSign, CreditCard } from "lucide-react";
+import Link from "next/link";
+import { DollarSign, CreditCard, Eye } from "lucide-react";
 import { describeDbError } from "@/lib/supabase/queries";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
@@ -11,12 +12,14 @@ import { SearchInput } from "@/components/filters/search-input";
 import { MonthYearFilter } from "@/components/filters/month-year-filter";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatCard } from "@/components/ui/stat-card";
+import { buttonVariants } from "@/components/ui/button";
 import { fetchCollections } from "@/lib/supabase/queries";
 
 export const metadata = { title: "Collections" };
 
 interface CollectionRow {
   id: string;
+  orderId: string | null;
   collectedAt: string;
   orderNumber: string;
   orderStatus: string;
@@ -77,6 +80,21 @@ const COLUMNS: Column<CollectionRow>[] = [
     header: "Notes",
     render: (row) => row.notes ? <span className="text-muted max-w-xs truncate block">{row.notes}</span> : <span className="text-muted">—</span>,
   },
+  {
+    key: "action",
+    header: "Action",
+    className: "text-right whitespace-nowrap",
+    render: (row) =>
+      row.orderId ? (
+        <Link
+          href={`/orders/${row.orderId}/invoice`}
+          className={buttonVariants({ variant: "secondary", size: "sm" })}
+        >
+          <Eye className="h-4 w-4" aria-hidden />
+          View Invoice
+        </Link>
+      ) : null,
+  },
 ];
 
 const CSV_HEADERS = ["Collected Date", "Invoice No.", "Order Status", "Customer", "Amount", "Payment Method", "Reference No.", "Notes"];
@@ -99,6 +117,7 @@ export default async function CollectionsPage({
     const data = await fetchCollections({ month, year, q });
     collections = (data ?? []).map((c) => ({
       id: c.id,
+      orderId: c.order?.id ?? null,
       collectedAt: c.collected_at,
       orderNumber: c.order?.order_number ?? "—",
       orderStatus: c.order?.status ?? "reserved",
