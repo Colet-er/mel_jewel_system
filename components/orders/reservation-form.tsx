@@ -23,8 +23,9 @@ export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
 
 export interface FormLineItem {
   id: string;
-  itemSource: "manual" | "moissanite";
+  itemSource: "manual" | "moissanite" | "product";
   selectedInventoryId: string;
+  selectedProductId?: string;
   itemCode: string;
   itemName: string;
   category: string;
@@ -57,6 +58,7 @@ function createEmptyItem(idPrefix: string = "item"): FormLineItem {
     id: `${idPrefix}-${Math.random().toString(36).substring(2, 9)}`,
     itemSource: "manual",
     selectedInventoryId: "",
+    selectedProductId: "",
     itemCode: "",
     itemName: "",
     category: "",
@@ -71,8 +73,11 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
   if (initial?.items && initial.items.length > 0) {
     initialItems = initial.items.map((item, idx) => ({
       id: item.id || `item-${idx}-${Math.random().toString(36).substring(2, 9)}`,
-      itemSource: item.itemSource ?? (item.selectedInventoryId ? "moissanite" : "manual"),
+      itemSource:
+        item.itemSource ??
+        (item.selectedInventoryId ? "moissanite" : item.selectedProductId ? "product" : "manual"),
       selectedInventoryId: item.selectedInventoryId || "",
+      selectedProductId: item.selectedProductId || "",
       itemCode: item.itemCode || "",
       itemName: item.itemName || "",
       category: item.category || "",
@@ -85,6 +90,7 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
         id: `item-${Math.random().toString(36).substring(2, 9)}`,
         itemSource: "manual",
         selectedInventoryId: "",
+        selectedProductId: "",
         itemCode: initial.itemCode || "",
         itemName: initial.itemName || "",
         category: initial.category || "",
@@ -128,6 +134,14 @@ interface MoissaniteInventoryOption {
   category: { name: string } | null;
 }
 
+interface ProductCatalogOption {
+  id: string;
+  name: string;
+  sku: string | null;
+  price: number;
+  category: { name: string } | null;
+}
+
 const selectClass =
   "h-10 w-full rounded-lg border border-white/10 bg-background/55 px-3 text-sm text-foreground shadow-inner shadow-black/5 transition-all duration-200 hover:border-white/20 focus:border-primary focus:bg-background/80 focus:ring-4 focus:ring-primary/10";
 
@@ -154,6 +168,7 @@ export function ReservationFormModal({
   const [values, setValues] = useState<ReservationFormValues>(() => normalizeInitialValues(initial));
   const [error, setError] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<MoissaniteInventoryOption[]>([]);
+  const [productItems, setProductItems] = useState<ProductCatalogOption[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -169,26 +184,44 @@ export function ReservationFormModal({
   useEffect(() => {
     let active = true;
     const supabase = createClient();
-    void supabase
-      .from("moissanite_skus")
-      .select("id,sku,item_name,description,selling_price,setting,category:categories(name)")
-      .neq("status", "archived")
-      .order("sku")
-      .then(({ data, error: inventoryError }) => {
-        if (!active) return;
-        setInventoryLoading(false);
-        if (inventoryError) {
-          setInventoryLoadError("Could not load the Moissanite catalog. You can still enter item details manually.");
-          return;
-        }
-        const items = (data ?? []).map((item) => ({
+    void Promise.all([
+      supabase
+        .from("moissanite_skus")
+        .select("id,sku,item_name,description,selling_price,setting,category:categories(name)")
+        .neq("status", "archived")
+        .order("sku"),
+      supabase
+        .from("products")
+        .select("id,name,sku,price,category:categories(name)")
+        .eq("is_active", true)
+        .eq("is_archived", false)
+        .order("name"),
+    ]).then(([moissaniteResult, productsResult]) => {
+      if (!active) return;
+      setInventoryLoading(false);
+      if (moissaniteResult.error) {
+        setInventoryLoadError("Could not load the Moissanite catalog. You can still enter item details manually.");
+      } else if (moissaniteResult.data) {
+        const items = moissaniteResult.data.map((item) => ({
           ...item,
           selling_price: Number(item.selling_price),
           category: Array.isArray(item.category) ? item.category[0] ?? null : item.category,
         })) as MoissaniteInventoryOption[];
         setInventoryItems(items);
-      });
-    return () => { active = false; };
+      }
+
+      if (!productsResult.error && productsResult.data) {
+        const products = productsResult.data.map((prod) => ({
+          ...prod,
+          price: Number(prod.price),
+          category: Array.isArray(prod.category) ? prod.category[0] ?? null : prod.category,
+        })) as ProductCatalogOption[];
+        setProductItems(products);
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   function handleBackdropClick(event: React.MouseEvent<HTMLDivElement>) {
@@ -239,6 +272,7 @@ export function ReservationFormModal({
         nextItems[index] = {
           ...nextItems[index],
           selectedInventoryId: inventoryId,
+          selectedProductId: "",
           itemSource: "moissanite",
           itemCode: item.sku,
           itemName: item.description || item.item_name,
@@ -249,6 +283,33 @@ export function ReservationFormModal({
         nextItems[index] = {
           ...nextItems[index],
           selectedInventoryId: "",
+          itemSource: "manual",
+        };
+      }
+      return { ...current, items: nextItems };
+    });
+    setError(null);
+  }
+
+  function handleSelectProductItem(index: number, productId: string) {
+    const product = productItems.find((candidate) => candidate.id === productId);
+    setValues((current) => {
+      const nextItems = [...current.items];
+      if (product) {
+        nextItems[index] = {
+          ...nextItems[index],
+          selectedProductId: productId,
+          selectedInventoryId: "",
+          itemSource: "product",
+          itemCode: product.sku || "",
+          itemName: product.name,
+          category: product.category?.name ?? "General",
+          price: product.price.toFixed(2),
+        };
+      } else {
+        nextItems[index] = {
+          ...nextItems[index],
+          selectedProductId: "",
           itemSource: "manual",
         };
       }
@@ -320,6 +381,10 @@ export function ReservationFormModal({
       const item = values.items[i];
       if (item.itemSource === "moissanite" && !item.selectedInventoryId) {
         setError(`Select a Moissanite item for line item #${i + 1}.`);
+        return;
+      }
+      if (item.itemSource === "product" && !item.selectedProductId) {
+        setError(`Select a product for line item #${i + 1}.`);
         return;
       }
       if (!item.itemName.trim()) {
@@ -525,15 +590,17 @@ export function ReservationFormModal({
                           id={`item-source-${item.id}`}
                           value={item.itemSource}
                           onChange={(e) => {
-                            const source = e.target.value as "manual" | "moissanite";
+                            const source = e.target.value as "manual" | "moissanite" | "product";
                             handleUpdateItem(index, "itemSource", source);
                             if (source === "manual") {
                               handleUpdateItem(index, "selectedInventoryId", "");
+                              handleUpdateItem(index, "selectedProductId", "");
                             }
                           }}
                           className={selectClass}
                         >
                           <option value="manual">Manual Item</option>
+                          <option value="product">Product Catalog</option>
                           <option value="moissanite">Moissanite Catalog</option>
                         </select>
                       </div>
@@ -550,11 +617,32 @@ export function ReservationFormModal({
                             required
                           >
                             <option value="">
-                              {inventoryLoading ? "Loading catalog…" : "Select a catalog item"}
+                              {inventoryLoading ? "Loading catalog…" : "Select a Moissanite item"}
                             </option>
                             {inventoryItems.map((inv) => (
                               <option key={inv.id} value={inv.id}>
                                 {inv.sku} — {inv.description || inv.item_name} — {formatCurrency(inv.selling_price)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : item.itemSource === "product" ? (
+                        <div className="sm:col-span-2">
+                          <Label htmlFor={`item-product-${item.id}`}>Product Catalog Item</Label>
+                          <select
+                            id={`item-product-${item.id}`}
+                            value={item.selectedProductId || ""}
+                            onChange={(e) => handleSelectProductItem(index, e.target.value)}
+                            className={selectClass}
+                            disabled={inventoryLoading}
+                            required
+                          >
+                            <option value="">
+                              {inventoryLoading ? "Loading catalog…" : "Select a product"}
+                            </option>
+                            {productItems.map((prod) => (
+                              <option key={prod.id} value={prod.id}>
+                                {prod.name} {prod.sku ? `(${prod.sku})` : ""} — {formatCurrency(prod.price)}
                               </option>
                             ))}
                           </select>

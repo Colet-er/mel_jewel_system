@@ -72,13 +72,11 @@ export default async function MoissaniteSkuPage({ searchParams }: { searchParams
       fetchMoissaniteSkus({ q }),
       supabase.from("categories").select("id,name").order("name"),
     ]);
-    if (!categoryResult.error) {
-      const categoryLabels = new Map([["ring", "Ring"], ["necklace", "Necklace"], ["earrings", "Earrings"]]);
-      const byName = new Map((categoryResult.data ?? []).map((category) => [category.name.trim().toLowerCase(), category]));
-      categories = Array.from(categoryLabels, ([name, label]) => {
-        const category = byName.get(name);
-        return category ? { id: category.id, name: label } : null;
-      }).filter((category): category is InventoryCategory => category !== null);
+    if (!categoryResult.error && categoryResult.data) {
+      categories = categoryResult.data.map((category) => ({
+        id: category.id,
+        name: category.name,
+      }));
     }
     skus = (data ?? []).map((sku) => ({
       id: sku.id,

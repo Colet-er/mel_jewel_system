@@ -8,6 +8,7 @@ export interface MoissaniteInventoryInput {
   itemNumber: string;
   itemDescription: string;
   price: number;
+  cost?: number;
   categoryId: string;
   setting: string;
 }
@@ -22,14 +23,19 @@ function validateInput(input: MoissaniteInventoryInput): string | null {
   if (!input.itemNumber.trim()) return "Item number is required.";
   if (!input.itemDescription.trim()) return "Item description is required.";
   if (!Number.isFinite(input.price) || input.price < 0) return "Price must be zero or greater.";
-  if (!UUID_PATTERN.test(input.categoryId)) return "Select Ring, Necklace, or Earrings.";
+  if (input.cost !== undefined && (!Number.isFinite(input.cost) || input.cost < 0)) {
+    return "Cost must be zero or greater.";
+  }
+  if (!UUID_PATTERN.test(input.categoryId)) return "Please select a valid category.";
   if (input.id && !UUID_PATTERN.test(input.id)) return "Invalid inventory item.";
   return null;
 }
 
 function revalidateInventory() {
   revalidatePath("/moissanite/sku");
+  revalidatePath("/moissanite/sold");
   revalidatePath("/orders/reserved");
+  revalidatePath("/dashboard");
 }
 
 export async function saveMoissaniteInventory(
@@ -39,24 +45,30 @@ export async function saveMoissaniteInventory(
   if (validationError) return { ok: false, message: validationError };
 
   const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, message: "Your session expired. Sign in and try again." };
 
   const { data: category, error: categoryError } = await supabase
     .from("categories")
-    .select("name")
+    .select("id, name")
     .eq("id", input.categoryId)
     .maybeSingle();
-  const allowedCategories = new Set(["ring", "necklace", "earrings"]);
-  if (categoryError || !category || !allowedCategories.has(category.name.trim().toLowerCase())) {
-    return { ok: false, message: "Select Ring, Necklace, or Earrings." };
+
+  if (categoryError || !category) {
+    return { ok: false, message: "Please select a valid category." };
   }
+
+  const cost = input.cost !== undefined ? Math.round(input.cost * 100) / 100 : 0;
 
   const values = {
     sku: input.itemNumber.trim(),
     item_name: input.itemDescription.trim(),
     description: input.itemDescription.trim(),
     selling_price: Math.round(input.price * 100) / 100,
+    cost,
     category_id: input.categoryId,
     setting: input.setting.trim() || null,
     status: "active" as const,
@@ -64,7 +76,7 @@ export async function saveMoissaniteInventory(
 
   const operation = input.id
     ? supabase.from("moissanite_skus").update(values).eq("id", input.id).neq("status", "archived")
-    : supabase.from("moissanite_skus").insert({ ...values, cost: 0, created_by: user.id });
+    : supabase.from("moissanite_skus").insert({ ...values, created_by: user.id });
   const { error } = await operation;
 
   if (error) {
