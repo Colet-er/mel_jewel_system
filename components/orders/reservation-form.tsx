@@ -479,24 +479,6 @@ export function ReservationFormModal({
               />
             </div>
 
-            <div>
-              <Label htmlFor={`${baseId}-type`}>Type</Label>
-              <select
-                id={`${baseId}-type`}
-                value={values.type}
-                onChange={(event) =>
-                  update("type", event.target.value as ReservationTypeOption)
-                }
-                className={selectClass}
-              >
-                {RESERVATION_TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <h3 className={`${sectionHeadingClass} mt-2`}>Shipping Information</h3>
 
             <div>
