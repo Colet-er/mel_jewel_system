@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
+import { isDeveloperEmail } from "@/lib/auth/developer";
 
 const commissionRecordSchema = z.object({
   workerName: z.string().trim().min(1, "Employee name is required.").max(120),
@@ -37,8 +38,8 @@ export async function createCommissionRecord(
   }
 
   const { user, profile } = await getCurrentProfile();
-  if (profile?.role !== "admin" && profile?.role !== "owner") {
-    return { success: false, error: "Only admin and owner can create commission records." };
+  if (profile?.role !== "owner" && !isDeveloperEmail(user.email)) {
+    return { success: false, error: "Only business owners can create commission records." };
   }
 
   const supabase = await createClient();
@@ -82,9 +83,9 @@ export async function updateCommissionStatus(
     return { success: false, error: "Invalid commission update parameters." };
   }
 
-  const { profile } = await getCurrentProfile();
-  if (profile?.role !== "admin" && profile?.role !== "owner") {
-    return { success: false, error: "Only admin and owner can update commission status." };
+  const { user, profile } = await getCurrentProfile();
+  if (profile?.role !== "owner" && !isDeveloperEmail(user.email)) {
+    return { success: false, error: "Only business owners can update commission status." };
   }
 
   const supabase = await createClient();
@@ -109,9 +110,9 @@ export async function deleteCommissionRecord(
     return { success: false, error: "Invalid commission record ID." };
   }
 
-  const { profile } = await getCurrentProfile();
-  if (profile?.role !== "admin" && profile?.role !== "owner") {
-    return { success: false, error: "Only admin and owner can delete commission records." };
+  const { user, profile } = await getCurrentProfile();
+  if (profile?.role !== "owner" && !isDeveloperEmail(user.email)) {
+    return { success: false, error: "Only business owners can delete commission records." };
   }
 
   const supabase = await createClient();

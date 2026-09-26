@@ -11,6 +11,10 @@ const PROTECTED_PREFIXES = [
   "/reports",
   "/settings",
   "/accounts",
+  "/commission",
+  "/collections",
+  "/moissanite",
+  "/tanic",
 ];
 
 export async function proxy(request: NextRequest) {

@@ -19,6 +19,7 @@ describe("reservation/payment migration contract", () => {
   const allowZeroPayment = migration("0022_allow_zero_payment_amount.sql");
   const multiItemReservations = migration("0023_multi_item_reservations.sql");
   const reshipRtoOrders = migration("0024_reship_rto_orders.sql");
+  const ownerStrictlyCommissions = migration("0025_owner_only_commissions.sql");
 
   it("defines the complete clean-install reservation lifecycle", () => {
     for (const field of [
@@ -143,5 +144,16 @@ describe("reservation/payment migration contract", () => {
     expect(reshipRtoOrders).toContain("rec.status not in ('paid', 'reserved', 'rto')");
     expect(reshipRtoOrders).toContain("when rec.status = 'rto' then 'Re-shipped from RTO'");
     expect(reshipRtoOrders).toContain("grant execute on function public.mark_order_shipped(uuid) to authenticated");
+  });
+
+  it("strictly restricts commissions table to owners via is_owner helper", () => {
+    expect(ownerStrictlyCommissions).toContain("create or replace function public.is_owner()");
+    expect(ownerStrictlyCommissions).toContain("select public.current_user_role()::text = 'owner'");
+    expect(ownerStrictlyCommissions).toContain('create policy "Owners can view commissions"');
+    expect(ownerStrictlyCommissions).toContain('create policy "Owners can insert commissions"');
+    expect(ownerStrictlyCommissions).toContain('create policy "Owners can update commissions"');
+    expect(ownerStrictlyCommissions).toContain('create policy "Owners can delete commissions"');
+    expect(ownerStrictlyCommissions).toMatch(/using \(public\.is_owner\(\)\)/i);
+    expect(ownerStrictlyCommissions).toMatch(/with check \(public\.is_owner\(\)\)/i);
   });
 });

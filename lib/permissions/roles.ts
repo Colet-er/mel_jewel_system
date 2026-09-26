@@ -15,7 +15,8 @@ export type Permission =
   | "reports:view"
   | "reports:export"
   | "users:manage"
-  | "settings:manage";
+  | "settings:manage"
+  | "commissions:manage";
 
 const PERMISSIONS: Record<UserRole, readonly Permission[]> = {
   owner: [
@@ -30,6 +31,7 @@ const PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "reports:export",
     "users:manage",
     "settings:manage",
+    "commissions:manage",
   ],
   admin: [
     "orders:create",

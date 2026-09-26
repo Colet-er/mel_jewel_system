@@ -36,7 +36,7 @@ export function SidebarNav({ onNavigate, role, developerAccess, collapsed }: Sid
       {NAV_GROUPS.map((group, groupIndex) => {
         const visibleItems = group.items.filter(
           (item) =>
-            (item.href !== "/commission" || role === "admin" || role === "owner") &&
+            (item.href !== "/commission" || role === "owner" || developerAccess) &&
             (item.href !== "/accounts" || developerAccess)
         );
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CreditCard, ShieldCheck, ShoppingBag, Users, CheckCircle2, Clock } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/auth";
+import { isDeveloperEmail } from "@/lib/auth/developer";
 import { describeDbError, fetchCommissions, fetchOrders } from "@/lib/supabase/queries";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
@@ -183,9 +184,10 @@ export default async function CommissionPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { profile } = await getCurrentProfile();
+  const { user, profile } = await getCurrentProfile();
+  const isDev = isDeveloperEmail(user.email);
 
-  if (profile?.role !== "admin" && profile?.role !== "owner") {
+  if (profile?.role !== "owner" && !isDev) {
     notFound();
   }
 

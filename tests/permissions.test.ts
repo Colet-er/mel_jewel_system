@@ -20,6 +20,13 @@ describe("hasPermission", () => {
     expect(hasPermission("viewer", "customers:manage")).toBe(false);
   });
 
+  it("restricts commissions to owners only (admin, staff, viewer denied)", () => {
+    expect(hasPermission("owner", "commissions:manage")).toBe(true);
+    expect(hasPermission("admin", "commissions:manage")).toBe(false);
+    expect(hasPermission("staff", "commissions:manage")).toBe(false);
+    expect(hasPermission("viewer", "commissions:manage")).toBe(false);
+  });
+
   it("denies everything without a role", () => {
     expect(hasPermission(null, "reports:view")).toBe(false);
     expect(hasPermission(undefined, "products:view")).toBe(false);
