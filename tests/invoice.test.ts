@@ -90,18 +90,19 @@ describe("invoice transaction and status labels", () => {
     expect(getInvoiceStatusLabel(partialCodPayment)).toBe("COD");
   });
 
-  it("detects Pasabuy COD from Pasabuy plus a remaining paid-on-delivery balance", () => {
+  it("detects Pasabuy with a partial payment", () => {
     const order = makeOrder({
       reservation_type: "pasabuy",
       payments: [{ kind: "downpayment", amount: 250 }],
     });
-    expect(getInvoiceTransactionLabel(order)).toBe("PASABUY COD");
-    expect(getInvoiceStatusLabel(order)).toBe("Pasabuy COD");
+    expect(getInvoiceTransactionLabel(order)).toBe("PASABUY");
+    expect(getInvoiceStatusLabel(order)).toBe("Partial Payment");
   });
 
-  it("labels unpaid Pasabuy with a remaining balance as Pasabuy COD", () => {
+  it("labels unpaid Pasabuy with a remaining balance as PASABUY", () => {
     const order = makeOrder({ reservation_type: "pasabuy", payments: [] });
-    expect(getInvoiceTransactionLabel(order)).toBe("PASABUY COD");
+    expect(getInvoiceTransactionLabel(order)).toBe("PASABUY");
+    expect(getInvoiceStatusLabel(order)).toBe("Reserved");
   });
 
   it("gives fully paid precedence over reservation type when balance is zero", () => {

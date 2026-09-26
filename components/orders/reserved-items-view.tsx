@@ -19,7 +19,7 @@ import {
   shipSelectedOrders,
   type BulkActionResult,
 } from "@/app/(dashboard)/orders/reserved/actions";
-import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -84,7 +84,7 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
   const formItems = (row.items && row.items.length > 0)
     ? row.items.map((it, idx) => ({
         id: it.id || `row-item-${idx}`,
-        itemSource: (it.sku ? "moissanite" : "manual") as "manual" | "moissanite",
+        itemSource: (it.sku?.toUpperCase().startsWith("MOISS") || it.category?.toLowerCase() === "moissanite" ? "moissanite" : "product") as "moissanite" | "product",
         selectedInventoryId: "",
         itemCode: it.sku ?? "",
         itemName: it.name,
@@ -95,7 +95,7 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
     : [
         {
           id: "row-item-1",
-          itemSource: (row.itemCode ? "moissanite" : "manual") as "manual" | "moissanite",
+          itemSource: (row.itemCode?.toUpperCase().startsWith("MOISS") || row.category?.toLowerCase() === "moissanite" ? "moissanite" : "product") as "moissanite" | "product",
           selectedInventoryId: "",
           itemCode: row.itemCode ?? "",
           itemName: row.itemName === "—" ? "" : row.itemName,
@@ -295,7 +295,6 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                 <th scope="col" className={`${headerCellClass} text-right`}>Amount</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>DP</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Balance</th>
-                <th scope="col" className={headerCellClass}>Type</th>
                 <th scope="col" className={headerCellClass}>Status</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Action</th>
               </tr>
@@ -332,7 +331,6 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.amount)}</td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.dpPaid)}</td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.balance)}</td>
-                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">{formatReservationType(row.type)}</td>
                   <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4"><StatusBadge status={row.status} /></td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">
                     <div className="inline-flex items-center justify-end gap-2">

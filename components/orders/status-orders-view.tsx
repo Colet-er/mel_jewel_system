@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Eye, Package } from "lucide-react";
 import type { Order, OrderStatus } from "@/types";
 import { describeDbError, fetchOrders, settledDownpayment } from "@/lib/supabase/queries";
-import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -36,7 +36,6 @@ interface StatusRow {
   totalPaid: number;
   balance: number;
   dpPaid: number;
-  type: string;
   cancellationReason: string;
   rtoReason: string;
   rtoNotes: string;
@@ -138,7 +137,6 @@ function buildRow(order: Order, kind: StatusViewKind): StatusRow {
     totalPaid: totalPayments,
     balance,
     dpPaid,
-    type: formatReservationType(order.reservation_type),
     cancellationReason: order.cancellation_reason || "—",
     rtoReason: order.rto_reason || "—",
     rtoNotes: order.rto_notes || "—",
@@ -200,11 +198,6 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
     className: "text-right whitespace-nowrap",
     render: (row) => formatCurrency(row.amount),
   };
-  const typeColumn: Column<StatusRow> = {
-    key: "type",
-    header: "Type",
-    render: (row) => row.type,
-  };
   const statusColumn: Column<StatusRow> = {
     key: "status",
     header: "Status",
@@ -245,7 +238,6 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
         className: "text-right whitespace-nowrap",
         render: (row) => formatCurrency(row.totalPaid),
       },
-      typeColumn,
       statusColumn,
       actionColumn,
     ];
@@ -277,7 +269,6 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
           </div>
         ),
       },
-      typeColumn,
       statusColumn,
       actionColumn,
     ];
@@ -294,7 +285,6 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
       itemColumn,
       qtyColumn,
       amountColumn,
-      typeColumn,
       statusColumn,
       actionColumn,
     ];
@@ -340,7 +330,6 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
       className: "text-right whitespace-nowrap",
       render: (row) => formatCurrency(row.dpPaid),
     },
-    typeColumn,
     { key: "cancellationReason", header: "Cancellation Reason", render: (row) => row.cancellationReason },
     statusColumn,
     actionColumn,
@@ -360,7 +349,6 @@ const CSV_BASE_HEADERS = [
   "Total Paid",
   "Balance",
   "DP",
-  "Type",
   "Cancellation Reason",
   "RTO Reason",
   "RTO Notes",
@@ -381,7 +369,6 @@ function toCsvRow(row: StatusRow): (string | number)[] {
     row.totalPaid,
     row.balance,
     row.dpPaid,
-    row.type,
     row.cancellationReason,
     row.rtoReason,
     row.rtoNotes,

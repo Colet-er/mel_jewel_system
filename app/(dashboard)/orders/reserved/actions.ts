@@ -542,3 +542,31 @@ export async function markOrderRto(
   revalidatePath("/dashboard");
   return { ok: true };
 }
+
+/** Updates the transaction/reservation type (regular / pasabuy / cod) for an order. */
+export async function updateOrderTransactionType(
+  orderId: string,
+  type: "regular" | "pasabuy" | "cod"
+): Promise<{ ok: boolean; message?: string }> {
+  if (!UUID_PATTERN.test(orderId)) {
+    return { ok: false, message: "Invalid order ID." };
+  }
+  if (!["regular", "pasabuy", "cod"].includes(type)) {
+    return { ok: false, message: "Invalid transaction type." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({ reservation_type: type })
+    .eq("id", orderId);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidateReservationPaths();
+  revalidatePath(`/orders/${orderId}/invoice`);
+  revalidatePath(`/orders/${orderId}`);
+  return { ok: true };
+}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Copy, Printer, Image as LucideImage, CreditCard, Calendar, BadgeCheck } from "lucide-react";
 import Image from "next/image";
 import type { Order, ReservationType } from "@/types";
@@ -18,6 +19,8 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PaymentFormModal } from "@/components/orders/payment-form";
+import { updateOrderTransactionType } from "@/app/(dashboard)/orders/reserved/actions";
+import { cn } from "@/lib/utils/cn";
 
 function SummaryRow({
   label,
@@ -83,20 +86,48 @@ function CopyPanel({ order, summary }: { order: Order; summary: InvoiceSummary }
   return <CopyButton label="Message" message={getInvoiceMessage(template, summary)} />;
 }
 
-export function InvoiceView({ order }: { order: Order }) {
+export function InvoiceView({ order: initialOrder }: { order: Order }) {
+  const router = useRouter();
+  const [currentOrder, setCurrentOrder] = useState<Order>(initialOrder);
+  const order = currentOrder;
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isUpdatingType, startTypeTransition] = useTransition();
 
-  const summary = buildInvoiceSummary(order);
-  const transactionLabel = getInvoiceTransactionLabel(order, summary);
-  const statusLabel = getInvoiceStatusLabel(order, summary);
+  // Keep state in sync if prop updates
+  if (initialOrder.id !== currentOrder.id || initialOrder.updated_at !== currentOrder.updated_at) {
+    if (initialOrder.reservation_type !== currentOrder.reservation_type && !isUpdatingType) {
+      setCurrentOrder(initialOrder);
+    }
+  }
+
+  const currentType = (currentOrder.reservation_type ?? "regular") as ReservationType;
+
+  function handleTypeChange(newType: ReservationType) {
+    if (newType === currentType || isUpdatingType) return;
+    const updated = { ...currentOrder, reservation_type: newType };
+    setCurrentOrder(updated);
+
+    startTypeTransition(async () => {
+      const res = await updateOrderTransactionType(currentOrder.id, newType);
+      if (res.ok) {
+        setNotice(`Transaction type updated to ${newType.toUpperCase()}.`);
+        router.refresh();
+      } else {
+        setNotice(res.message ?? "Failed to update transaction type.");
+      }
+    });
+  }
+
+  const summary = buildInvoiceSummary(currentOrder);
+  const transactionLabel = getInvoiceTransactionLabel(currentOrder, summary);
+  const statusLabel = getInvoiceStatusLabel(currentOrder, summary);
   const isDeliveryLabel =
     transactionLabel === "COD" ||
-    transactionLabel === "CASH ON DELIVERY (COD)" ||
-    transactionLabel === "PASABUY COD";
+    transactionLabel === "CASH ON DELIVERY (COD)";
 
-  const allEvidence = order.payments?.flatMap((p) => p.evidence ?? []) ?? [];
-  const canRecordPayment = order.status !== "cancelled" && summary.amountDue > 0;
+  const allEvidence = currentOrder.payments?.flatMap((p) => p.evidence ?? []) ?? [];
+  const canRecordPayment = currentOrder.status !== "cancelled" && summary.amountDue > 0;
 
   return (
     <div className="space-y-4">
@@ -109,17 +140,46 @@ export function InvoiceView({ order }: { order: Order }) {
         </div>
       ) : null}
 
-      <div className="invoice-actions mx-auto flex max-w-xl flex-wrap items-center justify-end gap-2">
-        {canRecordPayment ? (
-          <Button size="sm" onClick={() => setShowPaymentModal(true)}>
-            <BadgeCheck className="h-4 w-4" aria-hidden />
-            Record Payment
+      <div className="invoice-actions mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3">
+        {/* Transaction Type Selector */}
+        <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-elevated/70 p-1">
+          <span className="pl-2 pr-1 text-xs font-semibold text-muted">Type:</span>
+          {(
+            [
+              { value: "regular", label: "Regular" },
+              { value: "pasabuy", label: "Pasabuy" },
+              { value: "cod", label: "COD" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              disabled={isUpdatingType}
+              onClick={() => handleTypeChange(t.value)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-bold transition-all disabled:opacity-50",
+                currentType === t.value
+                  ? "bg-primary text-white shadow-sm shadow-primary/25"
+                  : "text-muted hover:bg-white/[0.06] hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {canRecordPayment ? (
+            <Button size="sm" onClick={() => setShowPaymentModal(true)}>
+              <BadgeCheck className="h-4 w-4" aria-hidden />
+              Record Payment
+            </Button>
+          ) : null}
+          <Button variant="secondary" size="sm" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" aria-hidden />
+            Print Invoice
           </Button>
-        ) : null}
-        <Button variant="secondary" size="sm" onClick={() => window.print()}>
-          <Printer className="h-4 w-4" aria-hidden />
-          Print Invoice
-        </Button>
+        </div>
       </div>
 
       <Card
@@ -387,16 +447,16 @@ export function InvoiceView({ order }: { order: Order }) {
       </Card>
 
       <div className="invoice-actions mx-auto max-w-xl">
-        <CopyPanel order={order} summary={summary} />
+        <CopyPanel order={currentOrder} summary={summary} />
       </div>
 
       {showPaymentModal ? (
         <PaymentFormModal
           reservation={{
-            id: order.id,
+            id: currentOrder.id,
             invoiceNumber: summary.invoiceNumber,
             customerName: summary.customerName,
-            fbName: order.customer?.fb_name ?? "",
+            fbName: currentOrder.customer?.fb_name ?? "",
             amount: summary.totalAmount,
             totalPaid: summary.totalPaid,
             balance: summary.amountDue,

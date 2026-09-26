@@ -23,7 +23,7 @@ export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
 
 export interface FormLineItem {
   id: string;
-  itemSource: "manual" | "moissanite" | "product";
+  itemSource: "moissanite" | "product";
   selectedInventoryId: string;
   selectedProductId?: string;
   itemCode: string;
@@ -56,7 +56,7 @@ export interface ReservationFormValues {
 function createEmptyItem(idPrefix: string = "item"): FormLineItem {
   return {
     id: `${idPrefix}-${Math.random().toString(36).substring(2, 9)}`,
-    itemSource: "manual",
+    itemSource: "product",
     selectedInventoryId: "",
     selectedProductId: "",
     itemCode: "",
@@ -74,8 +74,9 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
     initialItems = initial.items.map((item, idx) => ({
       id: item.id || `item-${idx}-${Math.random().toString(36).substring(2, 9)}`,
       itemSource:
-        item.itemSource ??
-        (item.selectedInventoryId ? "moissanite" : item.selectedProductId ? "product" : "manual"),
+        item.itemSource === "moissanite" || Boolean(item.selectedInventoryId)
+          ? "moissanite"
+          : "product",
       selectedInventoryId: item.selectedInventoryId || "",
       selectedProductId: item.selectedProductId || "",
       itemCode: item.itemCode || "",
@@ -88,7 +89,7 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
     initialItems = [
       {
         id: `item-${Math.random().toString(36).substring(2, 9)}`,
-        itemSource: "manual",
+        itemSource: "product",
         selectedInventoryId: "",
         selectedProductId: "",
         itemCode: initial.itemCode || "",
@@ -283,7 +284,10 @@ export function ReservationFormModal({
         nextItems[index] = {
           ...nextItems[index],
           selectedInventoryId: "",
-          itemSource: "manual",
+          itemCode: "",
+          itemName: "",
+          category: "",
+          price: "",
         };
       }
       return { ...current, items: nextItems };
@@ -310,7 +314,10 @@ export function ReservationFormModal({
         nextItems[index] = {
           ...nextItems[index],
           selectedProductId: "",
-          itemSource: "manual",
+          itemCode: "",
+          itemName: "",
+          category: "",
+          price: "",
         };
       }
       return { ...current, items: nextItems };
@@ -567,21 +574,22 @@ export function ReservationFormModal({
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       <div>
-                        <Label htmlFor={`item-source-${item.id}`}>Source</Label>
+                        <Label htmlFor={`item-source-${item.id}`}>Item Source</Label>
                         <select
                           id={`item-source-${item.id}`}
                           value={item.itemSource}
                           onChange={(e) => {
-                            const source = e.target.value as "manual" | "moissanite" | "product";
+                            const source = e.target.value as "moissanite" | "product";
                             handleUpdateItem(index, "itemSource", source);
-                            if (source === "manual") {
-                              handleUpdateItem(index, "selectedInventoryId", "");
-                              handleUpdateItem(index, "selectedProductId", "");
-                            }
+                            handleUpdateItem(index, "selectedInventoryId", "");
+                            handleUpdateItem(index, "selectedProductId", "");
+                            handleUpdateItem(index, "itemCode", "");
+                            handleUpdateItem(index, "itemName", "");
+                            handleUpdateItem(index, "category", "");
+                            handleUpdateItem(index, "price", "");
                           }}
                           className={selectClass}
                         >
-                          <option value="manual">Manual Item</option>
                           <option value="product">Product Catalog</option>
                           <option value="moissanite">Moissanite Catalog</option>
                         </select>
@@ -608,7 +616,7 @@ export function ReservationFormModal({
                             ))}
                           </select>
                         </div>
-                      ) : item.itemSource === "product" ? (
+                      ) : (
                         <div className="sm:col-span-2">
                           <Label htmlFor={`item-product-${item.id}`}>Product Catalog Item</Label>
                           <select
@@ -628,17 +636,6 @@ export function ReservationFormModal({
                               </option>
                             ))}
                           </select>
-                        </div>
-                      ) : (
-                        <div>
-                          <Label htmlFor={`item-code-${item.id}`}>Item Code (SKU)</Label>
-                          <Input
-                            id={`item-code-${item.id}`}
-                            value={item.itemCode}
-                            onChange={(e) => handleUpdateItem(index, "itemCode", e.target.value)}
-                            placeholder="SKU / Item code"
-                            autoComplete="off"
-                          />
                         </div>
                       )}
 

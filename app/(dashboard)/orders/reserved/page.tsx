@@ -115,7 +115,6 @@ export default async function ReservedItemsPage({ searchParams }: ReservedItemsP
     row.amount,
     row.dpPaid,
     row.balance,
-    row.type,
     row.status,
   ]);
 
@@ -140,7 +139,6 @@ export default async function ReservedItemsPage({ searchParams }: ReservedItemsP
                 "Amount",
                 "DP",
                 "Balance",
-                "Type",
                 "Status",
               ]}
               rows={csvRows}

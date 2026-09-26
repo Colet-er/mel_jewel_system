@@ -51,7 +51,6 @@ export type InvoiceTransactionLabel =
   | "COD"
   | "CASH ON DELIVERY (COD)"
   | "PASABUY"
-  | "PASABUY COD"
   | "FULLY PAID";
 
 export type InvoiceStatusLabel =
@@ -59,7 +58,6 @@ export type InvoiceStatusLabel =
   | "Partial Payment"
   | "Fully Paid"
   | "COD"
-  | "Pasabuy COD"
   | "Cancelled"
   | "Shipped";
 
@@ -156,7 +154,7 @@ export function getInvoiceTransactionLabel(
     return "COD";
   }
   if (order.reservation_type === "pasabuy") {
-    return isNotFullyPaid ? "PASABUY COD" : "PASABUY";
+    return "PASABUY";
   }
   return "REGULAR";
 }
@@ -178,13 +176,6 @@ export function getInvoiceStatusLabel(
   }
   if ((order.status === "paid" || paymentState === "fully-paid") && !isNotFullyPaid) {
     return "Fully Paid";
-  }
-  if (
-    order.reservation_type === "pasabuy" &&
-    paymentState === "partial" &&
-    isNotFullyPaid
-  ) {
-    return "Pasabuy COD";
   }
   if (paymentState === "partial") return "Partial Payment";
   return "Reserved";
