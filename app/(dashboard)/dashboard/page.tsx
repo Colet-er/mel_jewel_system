@@ -376,7 +376,7 @@ export default async function DashboardPage() {
               icon={<Gem />}
               label="Available Stone"
               value={availableStock !== null ? availableStock.toLocaleString("en-US") : 0}
-              href="/moissanite/sku"
+              href="/products?tab=moissanite"
             />
             <MetricRow
               icon={<PackageCheck />}

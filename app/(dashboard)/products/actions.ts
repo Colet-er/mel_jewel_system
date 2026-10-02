@@ -15,6 +15,7 @@ function revalidateProductPaths() {
   revalidatePath("/orders/new");
   revalidatePath("/orders/reserved");
   revalidatePath("/dashboard");
+  revalidatePath("/moissanite/sku");
 }
 
 export async function saveProduct(input: ProductInput): Promise<ProductActionResult> {

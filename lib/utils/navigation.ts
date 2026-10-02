@@ -31,7 +31,6 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Moissanite",
     items: [
-      { label: "Moissanite-SKU", href: "/moissanite/sku", icon: "gem" },
       { label: "Sold Moissanite", href: "/moissanite/sold", icon: "shopping-bag" },
     ],
   },

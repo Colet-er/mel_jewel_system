@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, Package, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { Gem, LoaderCircle, Package, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { deleteProduct, saveProduct } from "@/app/(dashboard)/products/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -19,30 +19,39 @@ export interface ProductItemValues {
   categoryId: string | null;
   price: number;
   cost: number;
-  stock: number;
   isActive: boolean;
 }
 
 interface ProductFormProps {
   categories: ProductCategory[];
   initial?: ProductItemValues;
+  defaultIsMoissanite?: boolean;
   onClose: () => void;
 }
 
 const selectClass =
   "h-11 w-full rounded-lg border border-white/10 bg-background/70 px-3 text-sm text-foreground shadow-inner shadow-black/5 transition hover:border-white/20 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10";
 
-function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
+function ProductFormModal({ categories, initial, defaultIsMoissanite = false, onClose }: ProductFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
   const [sku, setSku] = useState(initial?.sku ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
   const [cost, setCost] = useState(initial?.cost ? String(initial.cost) : "");
-  const [stock, setStock] = useState(initial?.stock !== undefined ? String(initial.stock) : "0");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // If defaultIsMoissanite is set and no category selected, try matching "Moissanite"
+  useEffect(() => {
+    if (!initial && defaultIsMoissanite && !categoryId) {
+      const moissCat = categories.find((c) => c.name.toLowerCase() === "moissanite");
+      if (moissCat) {
+        setCategoryId(moissCat.id);
+      }
+    }
+  }, [defaultIsMoissanite, categories, initial, categoryId]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -73,12 +82,6 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
       return;
     }
 
-    const numericStock = stock.trim() !== "" ? Math.floor(Number(stock)) : 0;
-    if (!Number.isFinite(numericStock) || numericStock < 0) {
-      setError("Stock must be a non-negative whole number.");
-      return;
-    }
-
     startTransition(async () => {
       const result = await saveProduct({
         id: initial?.id,
@@ -87,7 +90,6 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
         categoryId: categoryId || null,
         price: numericPrice,
         cost: numericCost,
-        stock: numericStock,
         isActive,
       });
 
@@ -157,7 +159,7 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
                   onChange={(event) => setName(event.target.value)}
                   required
                   autoFocus={!initial}
-                  placeholder="e.g. South Sea Pearl Pendant 14K Gold"
+                  placeholder="e.g. South Sea Pearl Pendant 14K Gold or Moissanite Solitaire Ring"
                   autoComplete="off"
                 />
               </div>
@@ -169,7 +171,7 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
                   className="h-11 font-mono uppercase"
                   value={sku}
                   onChange={(event) => setSku(event.target.value)}
-                  placeholder="e.g. SSP-001"
+                  placeholder="e.g. SSP-001 or MOISS-001"
                   autoComplete="off"
                 />
                 <p className="mt-1.5 text-xs text-muted">Optional unique code for quick identification.</p>
@@ -196,10 +198,10 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
 
           <section className="border-t border-white/[0.07] pt-5">
             <div className="mb-4">
-              <h3 className="text-sm font-semibold text-foreground">Pricing & Stock</h3>
-              <p className="mt-1 text-xs text-muted">Set the selling price, optional cost, and inventory count.</p>
+              <h3 className="text-sm font-semibold text-foreground">Pricing & Availability</h3>
+              <p className="mt-1 text-xs text-muted">Set the selling price and catalog active status.</p>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="product-price">
                   Selling Price <span className="text-primary">*</span>
@@ -242,34 +244,26 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
                   />
                 </div>
               </div>
-
-              <div>
-                <Label htmlFor="product-stock">Stock Quantity</Label>
-                <Input
-                  id="product-stock"
-                  className="h-11"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={stock}
-                  onChange={(event) => setStock(event.target.value)}
-                  placeholder="0"
-                  inputMode="numeric"
-                />
-              </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-3">
-              <input
-                id="product-active"
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="h-4 w-4 rounded border-white/20 bg-background/80 text-primary focus:ring-primary/20"
-              />
-              <Label htmlFor="product-active" className="cursor-pointer text-sm font-normal text-foreground">
-                Active in catalog (visible when adding orders/reservations)
-              </Label>
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.025] p-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="product-active"
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-background/80 text-primary focus:ring-primary/20"
+                />
+                <div>
+                  <Label htmlFor="product-active" className="cursor-pointer font-medium text-foreground">
+                    Active in Catalog
+                  </Label>
+                  <p className="mt-0.5 text-xs text-muted">
+                    When active, this product appears as a choice during order and reservation creation. Uncheck to hide it without deleting history.
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -302,7 +296,13 @@ function ProductFormModal({ categories, initial, onClose }: ProductFormProps) {
   );
 }
 
-export function AddProductButton({ categories }: { categories: ProductCategory[] }) {
+export function AddProductButton({
+  categories,
+  defaultIsMoissanite,
+}: {
+  categories: ProductCategory[];
+  defaultIsMoissanite?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -310,7 +310,13 @@ export function AddProductButton({ categories }: { categories: ProductCategory[]
         <Plus className="h-4 w-4" aria-hidden />
         Add Product
       </Button>
-      {open ? <ProductFormModal categories={categories} onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <ProductFormModal
+          categories={categories}
+          defaultIsMoissanite={defaultIsMoissanite}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
