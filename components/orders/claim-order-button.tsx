@@ -5,18 +5,26 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { claimSelectedOrders } from "@/app/(dashboard)/orders/reserved/actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /** Marks a single shipped order as claimed via the mark_order_claimed RPC. */
 export function ClaimOrderButton({ orderId, status }: { orderId: string; status?: string }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const isEligible = status === "shipped";
 
-  function handleClick() {
+  async function handleClick() {
     if (isPending || !isEligible) return;
-    if (!window.confirm("Mark this order as claimed?")) return;
+    const ok = await confirm({
+      title: "Claim Order",
+      description: "Mark this order as claimed?",
+      confirmLabel: "Mark as Claimed",
+      variant: "primary",
+    });
+    if (!ok) return;
 
     startTransition(async () => {
       setError(null);

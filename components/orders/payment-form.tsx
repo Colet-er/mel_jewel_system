@@ -13,6 +13,7 @@ import {
 import { formatCurrency } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface PaymentReservationSummary {
   id: string;
@@ -39,6 +40,7 @@ export function PaymentFormModal({
   onSuccess,
 }: PaymentFormModalProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
@@ -65,7 +67,7 @@ export function PaymentFormModal({
     setError(null);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isPending) return;
 
@@ -80,6 +82,14 @@ export function PaymentFormModal({
       setError(validationError);
       return;
     }
+
+    const ok = await confirm({
+      title: "Record Payment",
+      description: `Record payment of ${formatCurrency(parsedAmount)} for reservation ${reservation.invoiceNumber}?`,
+      confirmLabel: "Record Payment",
+      variant: "primary",
+    });
+    if (!ok) return;
 
     const formData = new FormData();
     formData.set("amount", String(parsedAmount));

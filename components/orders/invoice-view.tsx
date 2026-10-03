@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Printer, Image as LucideImage, CreditCard, Calendar, BadgeCheck } from "lucide-react";
+import { Check, Copy, Printer, Image as LucideImage, CreditCard, Calendar, BadgeCheck, X } from "lucide-react";
 import Image from "next/image";
 import type { Order, ReservationType } from "@/types";
 import {
@@ -18,6 +18,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PaymentFormModal } from "@/components/orders/payment-form";
 import { updateOrderTransactionType } from "@/app/(dashboard)/orders/reserved/actions";
 import { cn } from "@/lib/utils/cn";
@@ -88,6 +89,7 @@ function CopyPanel({ order, summary }: { order: Order; summary: InvoiceSummary }
 
 export function InvoiceView({ order: initialOrder }: { order: Order }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [currentOrder, setCurrentOrder] = useState<Order>(initialOrder);
   const order = currentOrder;
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -103,15 +105,22 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
 
   const currentType = (currentOrder.reservation_type ?? "regular") as ReservationType;
 
-  function handleTypeChange(newType: ReservationType) {
+  async function handleTypeChange(newType: ReservationType) {
     if (newType === currentType || isUpdatingType) return;
+    const ok = await confirm({
+      title: "Change Transaction Type",
+      description: `Are you sure you want to change the transaction type to ${newType.toUpperCase()}?`,
+      confirmLabel: "Change Type",
+      variant: "primary",
+    });
+    if (!ok) return;
     const updated = { ...currentOrder, reservation_type: newType };
     setCurrentOrder(updated);
 
     startTypeTransition(async () => {
       const res = await updateOrderTransactionType(currentOrder.id, newType);
       if (res.ok) {
-        setNotice(`Transaction type updated to ${newType.toUpperCase()}.`);
+        setNotice(`Transaction type successfully updated to ${newType.toUpperCase()}.`);
         router.refresh();
       } else {
         setNotice(res.message ?? "Failed to update transaction type.");
@@ -134,13 +143,24 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
       {notice ? (
         <div
           role="status"
-          className="mx-auto max-w-xl rounded-lg border border-success/30 bg-success/10 px-3.5 py-2 text-xs sm:text-sm font-medium text-success"
+          className="mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs sm:text-sm font-medium text-emerald-400"
         >
-          {notice}
+          <div className="flex items-center gap-2">
+            <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+            <span>{notice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="rounded p-1 text-emerald-400/70 hover:bg-emerald-500/20 hover:text-emerald-400"
+            aria-label="Dismiss notice"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
         </div>
       ) : null}
 
-      <div className="invoice-actions mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3">
+      <div className="invoice-actions mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3">
         {/* Transaction Type Selector */}
         <div className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-elevated/70 p-1">
           <span className="pl-2 pr-1 text-xs font-semibold text-muted">Type:</span>
@@ -184,14 +204,21 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
 
       <Card
         id="invoice-document"
-        className="mx-auto max-w-xl overflow-hidden rounded-xl border border-pink-300 bg-white text-zinc-800 shadow-lg"
+        className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-pink-300 bg-white text-zinc-800 shadow-lg font-serif"
       >
         <div className="h-1.5 bg-pink-500" />
 
         <header className="flex flex-col gap-4 border-b border-pink-200 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-pink-400 bg-pink-50 text-sm font-black text-pink-600">
-              DP
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-pink-200 bg-pink-50 p-1">
+              <Image
+                src="/images/a_clean_graphic_logo_on_a_transparent_background.png"
+                alt="Daily Pearls PH Logo"
+                width={44}
+                height={44}
+                className="h-full w-full object-contain"
+                priority
+              />
             </div>
             <div>
               <p className="text-base font-black tracking-[0.1em] text-pink-600 sm:text-lg">
@@ -238,37 +265,39 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
             <thead>
-              <tr className="bg-pink-500 text-[10px] sm:text-xs font-bold uppercase tracking-[0.14em] text-white">
-                <th scope="col" className="w-28 px-4 py-2 sm:px-6">Code</th>
-                <th scope="col" className="px-4 py-2 sm:px-6">Items</th>
-                <th scope="col" className="w-28 px-4 py-2 text-right sm:px-6">Amount</th>
+              <tr className="bg-pink-500 text-xs sm:text-sm font-bold uppercase tracking-[0.14em] text-white">
+                <th scope="col" className="w-28 px-4 py-2.5 text-left whitespace-nowrap sm:px-6">Code</th>
+                <th scope="col" className="px-4 py-2.5 text-center sm:px-6">Items</th>
+                <th scope="col" className="w-32 px-4 py-2.5 text-right whitespace-nowrap sm:px-6">Amount</th>
               </tr>
             </thead>
             <tbody>
               {summary.items.map((item, index) => (
                 <tr
                   key={`${item.sku ?? item.name}-${index}`}
-                  className="border-b border-pink-100"
+                  className="border-b border-pink-100/80 transition-colors hover:bg-pink-50/20"
                 >
-                  <td className="px-4 py-2 font-mono text-[11px] text-zinc-500 sm:px-6">
+                  <td className="px-4 py-2.5 text-left whitespace-nowrap text-xs sm:text-sm font-medium text-zinc-700 sm:px-6">
                     {item.sku ?? "—"}
                   </td>
-                  <td className="px-4 py-2 font-medium text-zinc-800 sm:px-6">
-                    {item.name}
-                    {item.quantity > 1 ? (
-                      <span className="ml-1.5 font-normal text-zinc-400">
-                        × {item.quantity.toLocaleString("en-US")}
-                      </span>
-                    ) : null}
+                  <td className="px-4 py-2.5 text-center text-xs sm:text-sm font-medium text-zinc-900 sm:px-6">
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <span>{item.name}</span>
+                      {item.quantity > 1 ? (
+                        <span className="inline-flex items-center rounded bg-pink-100 px-1.5 py-0.5 text-[11px] font-semibold text-pink-700 whitespace-nowrap">
+                          ×{item.quantity.toLocaleString("en-US")}
+                        </span>
+                      ) : null}
+                    </span>
                   </td>
-                  <td className="px-4 py-2 text-right font-semibold tabular-nums text-zinc-800 sm:px-6">
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap text-xs sm:text-sm font-semibold tabular-nums text-zinc-900 sm:px-6">
                     {formatCurrency(item.amount)}
                   </td>
                 </tr>
               ))}
               {summary.items.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-4 text-center text-xs text-zinc-400">
+                  <td colSpan={3} className="px-4 py-6 text-center text-xs sm:text-sm text-zinc-400">
                     No items recorded for this order.
                   </td>
                 </tr>
@@ -383,7 +412,7 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
                       {payment.reference_number ? (
                         <div>
                           <span className="text-zinc-400">Ref: </span>
-                          <span className="font-mono text-zinc-700">{payment.reference_number}</span>
+                          <span className="font-medium text-zinc-700">{payment.reference_number}</span>
                         </div>
                       ) : null}
                     </div>
@@ -446,7 +475,7 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
         </footer>
       </Card>
 
-      <div className="invoice-actions mx-auto max-w-xl">
+      <div className="invoice-actions mx-auto max-w-2xl">
         <CopyPanel order={currentOrder} summary={summary} />
       </div>
 

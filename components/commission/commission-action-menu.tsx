@@ -9,6 +9,7 @@ import {
   deleteCommissionRecord,
 } from "@/app/(dashboard)/commission/actions";
 import { buttonVariants } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface CommissionActionMenuProps {
   id: string;
@@ -25,6 +26,7 @@ export function CommissionActionMenu({
   customerName,
   workerName,
 }: CommissionActionMenuProps) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -82,14 +84,16 @@ export function CommissionActionMenu({
     });
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     setOpen(false);
-    if (
-      !window.confirm(
-        `Delete assistance record for ${workerName} (${customerName})? This cannot be undone.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete Commission Record",
+      description: `Delete assistance record for ${workerName} (${customerName})? This cannot be undone.`,
+      confirmLabel: "Delete Record",
+      variant: "danger",
+    });
+    if (!ok) return;
+
     startTransition(async () => {
       await deleteCommissionRecord(id);
     });

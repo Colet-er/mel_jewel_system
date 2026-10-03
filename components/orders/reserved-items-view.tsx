@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
   Pencil,
   Truck,
+  X,
 } from "lucide-react";
 import type { OrderStatus, ReservationType } from "@/types";
 import {
@@ -22,6 +23,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ReservationFormModal,
   type ReservationFormValues,
@@ -126,6 +128,7 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
 }
 
 export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableProps) {
+  const confirm = useConfirm();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -164,14 +167,22 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
     setNotice(null);
   }
 
-  function runBulkAction(
+  async function runBulkAction(
+    title: string,
     confirmMessage: string,
     action: (ids: string[]) => Promise<BulkActionResult>,
-    describe: (result: BulkActionResult) => string
+    describe: (result: BulkActionResult) => string,
+    variant: "primary" | "danger" = "primary"
   ) {
     const ids = Array.from(selected);
     if (ids.length === 0 || isPending) return;
-    if (!window.confirm(confirmMessage.replace("{count}", String(ids.length)))) return;
+    const ok = await confirm({
+      title,
+      description: confirmMessage.replace("{count}", String(ids.length)),
+      confirmLabel: "Confirm",
+      variant,
+    });
+    if (!ok) return;
 
     startTransition(async () => {
       try {
@@ -199,25 +210,29 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
 
   function handleDelete() {
     runBulkAction(
-      `Archive {count} reservation(s)? They will be removed from all lists but kept in the database for records.`,
+      "Archive Reservations",
+      `Archive {count} reservation(s)? They will be removed from active lists but kept in the database for historical records.`,
       archiveSelectedOrders,
       (result) =>
         `Archived ${result.succeeded.length} reservation(s).` +
         (result.failed.length > 0
           ? ` ${result.failed.length} skipped (not permitted or already archived).`
-          : "")
+          : ""),
+      "danger"
     );
   }
 
   function handleShip() {
     runBulkAction(
+      "Ship Reservations",
       `Mark {count} reservation(s) as shipped?`,
       shipSelectedOrders,
       (result) =>
         `Shipped ${result.succeeded.length} order(s).` +
         (result.failed.length > 0
           ? ` ${result.failed.length} failed.`
-          : "")
+          : ""),
+      "primary"
     );
   }
 
@@ -264,9 +279,23 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
       ) : null}
 
       {notice ? (
-        <p className="border-b border-white/[0.07] px-5 py-3 text-sm text-pink-light" role="status">
-          {notice}
-        </p>
+        <div
+          className="mx-4 my-3 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-400"
+          role="status"
+        >
+          <div className="flex items-center gap-2">
+            <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+            <span>{notice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="rounded p-1 text-emerald-400/70 hover:bg-emerald-500/20 hover:text-emerald-400"
+            aria-label="Dismiss notice"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
       ) : null}
 
       {rows.length === 0 ? (
@@ -276,7 +305,7 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
           <table className="w-full min-w-full text-left text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-white/[0.07] bg-white/[0.025]">
-                <th scope="col" className="w-10 px-3 py-3 sm:w-12 sm:px-4">
+                <th scope="col" className="sticky left-0 z-20 w-12 min-w-12 max-w-12 bg-elevated px-3 py-3 sm:px-4">
                   <input
                     ref={headerCheckboxRef}
                     type="checkbox"
@@ -286,9 +315,15 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                     className={checkboxClass}
                   />
                 </th>
-                <th scope="col" className={headerCellClass}>Reserve Date</th>
-                <th scope="col" className={headerCellClass}>Invoice No.</th>
-                <th scope="col" className={headerCellClass}>FB Name</th>
+                <th scope="col" className="sticky left-12 z-20 w-28 min-w-28 max-w-28 bg-elevated px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4 whitespace-nowrap">
+                  Reserve Date
+                </th>
+                <th scope="col" className="sticky left-[160px] z-20 w-32 min-w-32 max-w-32 bg-elevated px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4 whitespace-nowrap">
+                  Invoice No.
+                </th>
+                <th scope="col" className="sticky left-[288px] z-20 w-36 min-w-36 max-w-36 bg-elevated px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4 whitespace-nowrap">
+                  FB Name
+                </th>
                 <th scope="col" className={headerCellClass}>Customer Name</th>
                 <th scope="col" className={headerCellClass}>Item</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Qty</th>
@@ -307,7 +342,7 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                     isSelected ? "bg-primary/5" : ""
                   }`}
                 >
-                  <td className="px-3 py-3 sm:px-4 sm:py-3.5">
+                  <td className="sticky left-0 z-10 w-12 min-w-12 max-w-12 bg-card px-3 py-3 sm:px-4 sm:py-3.5">
                     <input
                       type="checkbox"
                       aria-label={`Select reservation ${row.invoiceNumber}`}
@@ -316,10 +351,16 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                       className={checkboxClass}
                     />
                   </td>
-                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">{formatDate(row.createdAt)}</td>
-                  <td className="whitespace-nowrap px-2.5 py-3 font-medium text-pink-light sm:px-3.5 sm:py-3.5 xl:px-4">{row.invoiceNumber}</td>
-                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <div className="max-w-[100px] lg:max-w-[130px] truncate text-muted" title={row.fbName}>{row.fbName}</div>
+                  <td className="sticky left-12 z-10 w-28 min-w-28 max-w-28 bg-card whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    {formatDate(row.createdAt)}
+                  </td>
+                  <td className="sticky left-[160px] z-10 w-32 min-w-32 max-w-32 bg-card whitespace-nowrap px-2.5 py-3 font-medium text-pink-light sm:px-3.5 sm:py-3.5 xl:px-4">
+                    {row.invoiceNumber}
+                  </td>
+                  <td className="sticky left-[288px] z-10 w-36 min-w-36 max-w-36 bg-card px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    <div className="max-w-[120px] lg:max-w-[140px] truncate text-muted" title={row.fbName}>
+                      {row.fbName}
+                    </div>
                   </td>
                   <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
                     <div className="max-w-[120px] lg:max-w-[160px] truncate" title={row.customerName}>{row.customerName}</div>
@@ -344,6 +385,7 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                       <ManageMenu
                         row={row}
                         disabled={isPending}
+                        onNotice={setNotice}
                       />
                     </div>
                   </td>
@@ -352,14 +394,12 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
             </tbody>
             <tfoot>
               <tr className="border-t border-white/[0.07] bg-white/[0.02] text-sm font-semibold">
-                <td colSpan={2} className="px-4 py-3 text-xs uppercase tracking-wider text-muted">
-                  Total Reserve
+                <td colSpan={4} className="sticky left-0 z-10 bg-card px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Total Reserve: <span className="font-bold text-foreground ml-1">{summary.totalReserve.toLocaleString("en-US")}</span>
                 </td>
-                <td className="px-3 py-3 xl:px-4">{summary.totalReserve.toLocaleString("en-US")}</td>
-                <td colSpan={3} className="px-4 py-3 text-xs uppercase tracking-wider text-muted">
+                <td colSpan={2} className="px-4 py-3 text-xs uppercase tracking-wider text-muted">
                   Amount to Pay
                 </td>
-                <td className="px-3 py-3 xl:px-4" />
                 <td className="px-3 py-3 xl:px-4">{formatCurrency(summary.amountToPay)}</td>
                 <td className="px-3 py-3 text-xs uppercase tracking-wider text-muted xl:px-4">
                   Total DP
@@ -381,9 +421,11 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
 function ManageMenu({
   row,
   disabled,
+  onNotice,
 }: {
   row: ReservedItemRow;
   disabled: boolean;
+  onNotice?: (msg: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -431,6 +473,8 @@ function ManageMenu({
     setOpen((current) => !current);
   }
 
+  const confirm = useConfirm();
+
   function handleEdit() {
     setOpen(false);
     setShowEditModal(true);
@@ -441,19 +485,34 @@ function ManageMenu({
     setShowPaymentModal(true);
   }
 
-  function handleShip() {
+  async function handleShip() {
     setOpen(false);
-    if (!window.confirm(`Mark reservation ${row.invoiceNumber} as shipped?`)) return;
-    shipSelectedOrders([row.id]).catch((err) => console.error("Ship failed:", err));
+    const ok = await confirm({
+      title: "Ship Reservation",
+      description: `Mark reservation ${row.invoiceNumber} as shipped?`,
+      confirmLabel: "Mark as Shipped",
+      variant: "primary",
+    });
+    if (!ok) return;
+
+    shipSelectedOrders([row.id])
+      .then(() => onNotice?.(`Reservation ${row.invoiceNumber} marked as shipped.`))
+      .catch((err) => console.error("Ship failed:", err));
   }
 
-  function handleCancel() {
+  async function handleCancel() {
     setOpen(false);
-    const reason = window.prompt(
-      `Cancel reservation ${row.invoiceNumber}? This cannot be undone. Optional cancellation reason:`
-    );
-    if (reason === null) return;
-    cancelSelectedOrders([row.id], reason).catch((err) => console.error("Cancel failed:", err));
+    const ok = await confirm({
+      title: "Cancel Reservation",
+      description: `Are you sure you want to cancel reservation ${row.invoiceNumber}? This action cannot be undone.`,
+      confirmLabel: "Cancel Reservation",
+      variant: "danger",
+    });
+    if (!ok) return;
+
+    cancelSelectedOrders([row.id])
+      .then(() => onNotice?.(`Reservation ${row.invoiceNumber} has been cancelled.`))
+      .catch((err) => console.error("Cancel failed:", err));
   }
 
   const menuContent = (
@@ -502,6 +561,7 @@ function ManageMenu({
       orderId={row.id}
       initial={toFormValues(row)}
       onClose={() => setShowEditModal(false)}
+      onSuccess={(msg) => onNotice?.(msg)}
     />,
     document.body
   ) : null;
@@ -518,8 +578,9 @@ function ManageMenu({
         balance: row.balance,
       }}
       onClose={() => setShowPaymentModal(false)}
-      onSuccess={() => {
+      onSuccess={(msg) => {
         setShowPaymentModal(false);
+        onNotice?.(msg);
       }}
     />,
     document.body

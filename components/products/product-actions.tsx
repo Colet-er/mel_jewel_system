@@ -6,6 +6,7 @@ import { Gem, LoaderCircle, Package, Pencil, Plus, Save, Trash2, X } from "lucid
 import { deleteProduct, saveProduct } from "@/app/(dashboard)/products/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface ProductCategory {
   id: string;
@@ -27,13 +28,15 @@ interface ProductFormProps {
   initial?: ProductItemValues;
   defaultIsMoissanite?: boolean;
   onClose: () => void;
+  onSuccess?: (message: string) => void;
 }
 
 const selectClass =
   "h-11 w-full rounded-lg border border-white/10 bg-background/70 px-3 text-sm text-foreground shadow-inner shadow-black/5 transition hover:border-white/20 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10";
 
-function ProductFormModal({ categories, initial, defaultIsMoissanite = false, onClose }: ProductFormProps) {
+function ProductFormModal({ categories, initial, defaultIsMoissanite = false, onClose, onSuccess }: ProductFormProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [name, setName] = useState(initial?.name ?? "");
   const [sku, setSku] = useState(initial?.sku ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
@@ -66,7 +69,7 @@ function ProductFormModal({ categories, initial, defaultIsMoissanite = false, on
     };
   }, [isPending, onClose]);
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
 
@@ -80,6 +83,16 @@ function ProductFormModal({ categories, initial, defaultIsMoissanite = false, on
     if (!Number.isFinite(numericCost) || numericCost < 0) {
       setError("Please enter a valid cost (zero or greater).");
       return;
+    }
+
+    if (initial) {
+      const ok = await confirm({
+        title: "Save Product Changes",
+        description: `Are you sure you want to save changes to "${name.trim() || initial.name}"?`,
+        confirmLabel: "Save Changes",
+        variant: "primary",
+      });
+      if (!ok) return;
     }
 
     startTransition(async () => {
@@ -98,6 +111,7 @@ function ProductFormModal({ categories, initial, defaultIsMoissanite = false, on
         return;
       }
 
+      onSuccess?.(result.message || (initial ? "Product changes saved successfully." : "Product added successfully."));
       router.refresh();
       onClose();
     });
@@ -299,9 +313,11 @@ function ProductFormModal({ categories, initial, defaultIsMoissanite = false, on
 export function AddProductButton({
   categories,
   defaultIsMoissanite,
+  onSuccess,
 }: {
   categories: ProductCategory[];
   defaultIsMoissanite?: boolean;
+  onSuccess?: (message: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -315,6 +331,7 @@ export function AddProductButton({
           categories={categories}
           defaultIsMoissanite={defaultIsMoissanite}
           onClose={() => setOpen(false)}
+          onSuccess={onSuccess}
         />
       ) : null}
     </>
@@ -324,19 +341,26 @@ export function AddProductButton({
 export function ProductRowActions({
   item,
   categories,
+  onSuccess,
 }: {
   item: ProductItemValues;
   categories: ProductCategory[];
+  onSuccess?: (message: string) => void;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleDelete() {
-    if (!window.confirm(`Delete product "${item.name}"? It will be archived and hidden from new orders.`)) {
-      return;
-    }
+  async function handleDelete() {
+    const ok = await confirm({
+      title: "Delete Product",
+      description: `Delete product "${item.name}"? It will be archived and hidden from new orders.`,
+      confirmLabel: "Delete Product",
+      variant: "danger",
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await deleteProduct(item.id);
@@ -344,6 +368,7 @@ export function ProductRowActions({
         setError(result.message || "Failed to delete product.");
         return;
       }
+      onSuccess?.(result.message || `Product "${item.name}" deleted successfully.`);
       router.refresh();
     });
   }
@@ -372,6 +397,7 @@ export function ProductRowActions({
           categories={categories}
           initial={item}
           onClose={() => setEditing(false)}
+          onSuccess={onSuccess}
         />
       ) : null}
     </div>

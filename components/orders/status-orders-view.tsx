@@ -145,16 +145,24 @@ function buildRow(order: Order, kind: StatusViewKind): StatusRow {
 }
 
 function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow>[] {
+  const dateColumn: Column<StatusRow> = {
+    key: "date",
+    header: dateLabel,
+    className: "sticky left-0 z-10 w-28 min-w-28 bg-card whitespace-nowrap",
+    render: (row) => <span className="whitespace-nowrap">{formatDate(row.date)}</span>,
+  };
   const invoiceColumn: Column<StatusRow> = {
     key: "invoiceNumber",
     header: "Invoice No.",
+    className: "sticky left-28 z-10 w-32 min-w-32 bg-card whitespace-nowrap",
     render: (row) => <span className="whitespace-nowrap font-medium text-pink-light">{row.invoiceNumber}</span>,
   };
   const fbNameColumn: Column<StatusRow> = {
     key: "fbName",
     header: "FB Name",
+    className: "sticky left-[240px] z-10 w-36 min-w-36 bg-card",
     render: (row) => (
-      <div className="max-w-[100px] lg:max-w-[130px] truncate text-muted" title={row.fbName}>
+      <div className="max-w-[120px] lg:max-w-[140px] truncate text-muted" title={row.fbName}>
         {row.fbName}
       </div>
     ),
@@ -222,13 +230,20 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
     ),
   };
 
+  const phoneColumn: Column<StatusRow> = {
+    key: "phone",
+    header: "Phone",
+    className: "whitespace-nowrap",
+    render: (row) => <span className="whitespace-nowrap">{row.phone}</span>,
+  };
+
   if (kind === "paid") {
     return [
-      { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
+      dateColumn,
       invoiceColumn,
       fbNameColumn,
       customerColumn,
-      { key: "phone", header: "Phone", render: (row) => row.phone },
+      phoneColumn,
       itemColumn,
       qtyColumn,
       amountColumn,
@@ -245,11 +260,11 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
 
   if (kind === "shipped") {
     return [
-      { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
+      dateColumn,
       invoiceColumn,
       fbNameColumn,
       customerColumn,
-      { key: "phone", header: "Phone", render: (row) => row.phone },
+      phoneColumn,
       addressColumn,
       itemColumn,
       qtyColumn,
@@ -276,11 +291,11 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
 
   if (kind === "claimed") {
     return [
-      { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
+      dateColumn,
       invoiceColumn,
       fbNameColumn,
       customerColumn,
-      { key: "phone", header: "Phone", render: (row) => row.phone },
+      phoneColumn,
       addressColumn,
       itemColumn,
       qtyColumn,
@@ -292,11 +307,11 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
 
   if (kind === "rto") {
     return [
-      { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
+      dateColumn,
       invoiceColumn,
       fbNameColumn,
       customerColumn,
-      { key: "phone", header: "Phone", render: (row) => row.phone },
+      phoneColumn,
       addressColumn,
       itemColumn,
       qtyColumn,
@@ -304,12 +319,20 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
       {
         key: "rtoReason",
         header: "RTO Reason",
-        render: (row) => row.rtoReason,
+        render: (row) => (
+          <div className="max-w-[110px] lg:max-w-[160px] truncate font-medium text-amber-400" title={row.rtoReason}>
+            {row.rtoReason}
+          </div>
+        ),
       },
       {
         key: "rtoNotes",
         header: "RTO Notes",
-        render: (row) => row.rtoNotes,
+        render: (row) => (
+          <div className="max-w-[110px] lg:max-w-[160px] truncate text-muted" title={row.rtoNotes}>
+            {row.rtoNotes}
+          </div>
+        ),
       },
       statusColumn,
       actionColumn,
@@ -317,7 +340,7 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
   }
 
   return [
-    { key: "date", header: dateLabel, render: (row) => formatDate(row.date) },
+    dateColumn,
     invoiceColumn,
     fbNameColumn,
     customerColumn,
@@ -330,7 +353,15 @@ function buildColumns(kind: StatusViewKind, dateLabel: string): Column<StatusRow
       className: "text-right whitespace-nowrap",
       render: (row) => formatCurrency(row.dpPaid),
     },
-    { key: "cancellationReason", header: "Cancellation Reason", render: (row) => row.cancellationReason },
+    {
+      key: "cancellationReason",
+      header: "Cancellation Reason",
+      render: (row) => (
+        <div className="max-w-[130px] lg:max-w-[180px] truncate text-muted" title={row.cancellationReason}>
+          {row.cancellationReason}
+        </div>
+      ),
+    },
     statusColumn,
     actionColumn,
   ];

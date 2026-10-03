@@ -10,7 +10,7 @@ const ALPHANUMERIC = /[a-z0-9]/i;
 const UNSAFE_ITEM_CHARS = /[<>{}\\]/;
 
 export function validateReservationInput(input: ReservationInput): string | null {
-  if (!input.customerName.trim()) return "Customer name is required.";
+  // Shipping info (customer name, phone, address) is optional and allowed to be empty.
 
   if (input.items && input.items.length > 0) {
     for (const item of input.items) {

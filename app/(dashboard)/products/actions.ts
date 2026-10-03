@@ -88,5 +88,33 @@ export async function deleteProduct(id: string): Promise<ProductActionResult> {
   }
 
   revalidateProductPaths();
-  return { ok: true };
+  return { ok: true, message: "Product successfully deleted." };
+}
+
+export async function deleteMultipleProducts(ids: string[]): Promise<ProductActionResult> {
+  const validIds = ids.filter((id) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  );
+  if (validIds.length === 0) {
+    return { ok: false, message: "No valid product IDs provided." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ is_archived: true, is_active: false })
+    .in("id", validIds);
+
+  if (error) {
+    if (error.code === "42501" || /row-level security|not authorized/i.test(error.message)) {
+      return { ok: false, message: "You are not authorized to delete products." };
+    }
+    return { ok: false, message: "Could not delete selected products." };
+  }
+
+  revalidateProductPaths();
+  return {
+    ok: true,
+    message: `Successfully deleted ${validIds.length} product${validIds.length === 1 ? "" : "s"}.`,
+  };
 }

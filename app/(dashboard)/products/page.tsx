@@ -4,7 +4,6 @@ import { describeDbError } from "@/lib/supabase/queries";
 import { formatCurrency } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { ExportButton } from "@/components/filters/export-button";
@@ -14,6 +13,7 @@ import {
   ProductRowActions,
   type ProductCategory,
 } from "@/components/products/product-actions";
+import { ProductsTable } from "@/components/products/products-table";
 import {
   ProductFilterTabs,
   type ProductSort,
@@ -48,113 +48,6 @@ export function isMoissanite(product: {
     sku.startsWith("MOISS") ||
     name.includes("moissanite")
   );
-}
-
-function itemActions(row: ProductRow, categories: ProductCategory[]) {
-  return (
-    <ProductRowActions
-      categories={categories}
-      item={{
-        id: row.id,
-        name: row.name,
-        sku: row.sku,
-        categoryId: row.category_id,
-        price: row.price,
-        cost: row.cost,
-        isActive: row.is_active,
-      }}
-    />
-  );
-}
-
-function columns(categories: ProductCategory[]): Column<ProductRow>[] {
-  return [
-    {
-      key: "name",
-      header: "Product Name",
-      render: (row) => {
-        const moiss = isMoissanite(row);
-        return (
-          <div className="flex items-center gap-2">
-            {moiss ? (
-              <Gem className="h-4 w-4 shrink-0 text-pink-light" aria-hidden />
-            ) : (
-              <Package className="h-4 w-4 shrink-0 text-muted" aria-hidden />
-            )}
-            <span className="font-medium text-foreground">{row.name}</span>
-          </div>
-        );
-      },
-    },
-    {
-      key: "sku",
-      header: "SKU / Code",
-      render: (row) =>
-        row.sku ? (
-          <span className="font-mono text-xs font-semibold text-pink-light">{row.sku}</span>
-        ) : (
-          <span className="text-muted">—</span>
-        ),
-    },
-    {
-      key: "type",
-      header: "Type",
-      render: (row) => {
-        const moiss = isMoissanite(row);
-        return moiss ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-pink-light">
-            <Gem className="h-3 w-3" aria-hidden />
-            Moissanite
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-xs text-muted">
-            <Package className="h-3 w-3" aria-hidden />
-            Product
-          </span>
-        );
-      },
-    },
-    {
-      key: "category",
-      header: "Category",
-      render: (row) =>
-        row.category?.name ? (
-          <span className="inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs text-muted">
-            {row.category.name}
-          </span>
-        ) : (
-          <span className="text-muted text-xs">Uncategorized</span>
-        ),
-    },
-    {
-      key: "price",
-      header: "Selling Price",
-      render: (row) => (
-        <span className="font-semibold text-pink-light">{formatCurrency(row.price)}</span>
-      ),
-      className: "text-right",
-    },
-    {
-      key: "is_active",
-      header: "Reservation Status",
-      render: (row) =>
-        row.is_active ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
-            <CheckCircle2 className="h-3 w-3" aria-hidden />
-            Active
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full border border-white/10 bg-elevated/60 px-2.5 py-0.5 text-xs font-medium text-muted">
-            Archived / Hidden
-          </span>
-        ),
-    },
-    {
-      key: "actions",
-      header: "Manage",
-      render: (row) => itemActions(row, categories),
-    },
-  ];
 }
 
 const CSV_HEADERS = ["Product", "SKU", "Type", "Category", "Price", "Cost", "Reservation Status"];
@@ -415,68 +308,11 @@ export default async function ProductsPage({
               <ErrorState title={dbError.title} description={dbError.description} />
             </div>
           ) : (
-            <>
-              <div className="hidden md:block">
-                <DataTable
-                  columns={columns(categories)}
-                  rows={filteredRows}
-                  rowKey={(row) => row.id}
-                  empty={empty}
-                />
-              </div>
-              <div className="divide-y divide-white/[0.07] md:hidden">
-                {filteredRows.length === 0 ? (
-                  empty
-                ) : (
-                  filteredRows.map((row) => {
-                    const moiss = isMoissanite(row);
-                    return (
-                      <article key={row.id} className="space-y-4 px-5 py-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              {moiss ? (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-pink-light">
-                                  <Gem className="h-2.5 w-2.5" />
-                                  Moissanite
-                                </span>
-                              ) : null}
-                              {row.sku ? (
-                                <p className="font-mono text-xs font-semibold uppercase tracking-wider text-pink-light">
-                                  {row.sku}
-                                </p>
-                              ) : null}
-                            </div>
-                            <h3 className="mt-1.5 text-sm font-semibold leading-5 text-foreground">
-                              {row.name}
-                            </h3>
-                          </div>
-                          <p className="shrink-0 text-sm font-semibold text-pink-light">
-                            {formatCurrency(row.price)}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-muted">
-                            {row.category?.name || "Uncategorized"}
-                          </span>
-                          {row.is_active ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-success">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Active in Reservation
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-white/10 bg-elevated/60 px-2.5 py-0.5 text-muted">
-                              Archived / Hidden
-                            </span>
-                          )}
-                        </div>
-                        {itemActions(row, categories)}
-                      </article>
-                    );
-                  })
-                )}
-              </div>
-            </>
+            <ProductsTable
+              products={filteredRows}
+              categories={categories}
+              empty={empty}
+            />
           )}
         </CardContent>
       </Card>

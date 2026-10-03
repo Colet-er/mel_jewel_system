@@ -216,16 +216,25 @@ export function isDownpaymentSettled(order: Order): boolean {
  * recorded order_payments. Only open orders are monitored: paid/shipped
  * orders are settled by definition and cancelled orders are excluded.
  */
-export async function fetchPendingDownpaymentOrders(): Promise<Order[]> {
+export async function fetchPendingDownpaymentOrders(filter?: {
+  month?: number;
+  year?: number;
+}): Promise<Order[]> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("orders")
     .select(ORDER_SELECT)
     .is("archived_at", null)
     .eq("status", "reserved")
-    .order("created_at", { ascending: false })
-    .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
+    .order("created_at", { ascending: false });
+
+  if (filter?.year && filter?.month) {
+    const range = monthRange(filter.year, filter.month);
+    query = query.gte("created_at", range.start).lt("created_at", range.end);
+  }
+
+  const { data, error } = await query.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
 
   if (error) {
     throw new Error(error.message);
@@ -245,19 +254,28 @@ export interface OrderStatusCounts {
 }
 
 /** Count of non-archived orders per status using lightweight head queries. */
-export async function fetchOrderStatusCounts(): Promise<OrderStatusCounts> {
+export async function fetchOrderStatusCounts(filter?: {
+  month?: number;
+  year?: number;
+}): Promise<OrderStatusCounts> {
   const supabase = await createClient();
 
   const statuses = ["reserved", "paid", "shipped", "claimed", "cancelled", "rto"] as const;
 
   const counts = await Promise.all(
     statuses.map(async (status) => {
-      const { count, error } = await supabase
+      let query = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .is("archived_at", null)
-        .eq("status", status)
-        .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
+        .eq("status", status);
+
+      if (filter?.year && filter?.month) {
+        const range = monthRange(filter.year, filter.month);
+        query = query.gte("created_at", range.start).lt("created_at", range.end);
+      }
+
+      const { count, error } = await query.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
 
       if (error) {
         throw new Error(error.message);
@@ -277,21 +295,21 @@ export async function fetchOrderStatusCounts(): Promise<OrderStatusCounts> {
   };
 }
 
-/** Total stock across active products (available stones). */
+/** Total available Moissanite stones (active/in-stock Moissanite SKUs). */
 export async function fetchAvailableStock(): Promise<number> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("products")
-    .select("stock")
-    .eq("is_active", true)
+  const { count, error } = await supabase
+    .from("moissanite_skus")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "archived")
     .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data ?? []).reduce((sum, product) => sum + Number(product.stock ?? 0), 0);
+  return count ?? 0;
 }
 
 /** Fetch a single order with full item/product/payment details, or null. */

@@ -297,11 +297,14 @@ export async function createReservation(
         }))
       : null;
 
+    const customerNameVal =
+      input.customerName?.trim() || input.fbName?.trim() || "Guest Customer";
+
     const payload = {
       p_fb_name: input.fbName?.trim() || null,
-      p_customer_name: input.customerName.trim(),
-      p_customer_address: input.customerAddress.trim() || null,
-      p_phone: input.phone.trim() || null,
+      p_customer_name: customerNameVal,
+      p_customer_address: input.customerAddress?.trim() || null,
+      p_phone: input.phone?.trim() || null,
       p_item_name: (firstItem?.itemName ?? input.itemName ?? "").trim(),
       p_item_code: (firstItem?.itemCode ?? input.itemCode ?? "").trim() || null,
       p_category_name: (firstItem?.category ?? input.category ?? "").trim() || null,
@@ -370,12 +373,15 @@ export async function updateReservation(
         }))
       : null;
 
+    const customerNameVal =
+      input.customerName?.trim() || input.fbName?.trim() || "Guest Customer";
+
     const { error } = await supabase.rpc("update_reservation", {
       p_order_id: orderId,
       p_fb_name: input.fbName?.trim() || null,
-      p_customer_name: input.customerName.trim(),
-      p_customer_address: input.customerAddress.trim() || null,
-      p_phone: input.phone.trim() || null,
+      p_customer_name: customerNameVal,
+      p_customer_address: input.customerAddress?.trim() || null,
+      p_phone: input.phone?.trim() || null,
       p_item_name: (firstItem?.itemName ?? input.itemName ?? "").trim(),
       p_item_code: (firstItem?.itemCode ?? input.itemCode ?? "").trim() || null,
       p_category_name: (firstItem?.category ?? input.category ?? "").trim() || null,

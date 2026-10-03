@@ -5,6 +5,8 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { cn } from "@/lib/utils/cn";
 
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+
 interface DashboardShellProps {
   children: ReactNode;
   email: string;
@@ -67,34 +69,36 @@ export function DashboardShell({
   }, [toggleCollapse]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
-        mobileOpen={mobileNavOpen}
-        onCloseMobile={() => setMobileNavOpen(false)}
-        role={role}
-        email={email}
-        fullName={fullName}
-        developerAccess={developerAccess}
-        collapsed={collapsed}
-      />
-      <div
-        className={cn(
-          "flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-in-out",
-          collapsed ? "lg:pl-[72px]" : "lg:pl-64"
-        )}
-      >
-        <Topbar
+    <ConfirmProvider>
+      <div className="min-h-screen bg-background">
+        <Sidebar
+          mobileOpen={mobileNavOpen}
+          onCloseMobile={() => setMobileNavOpen(false)}
+          role={role}
           email={email}
           fullName={fullName}
-          role={role}
-          onOpenMobileNav={() => setMobileNavOpen(true)}
+          developerAccess={developerAccess}
           collapsed={collapsed}
-          onToggleCollapse={toggleCollapse}
         />
-        <main className="min-w-0 flex-1 p-6 sm:p-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+        <div
+          className={cn(
+            "flex min-h-screen min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-in-out",
+            collapsed ? "lg:pl-[72px]" : "lg:pl-64"
+          )}
+        >
+          <Topbar
+            email={email}
+            fullName={fullName}
+            role={role}
+            onOpenMobileNav={() => setMobileNavOpen(true)}
+            collapsed={collapsed}
+            onToggleCollapse={toggleCollapse}
+          />
+          <main className="min-w-0 flex-1 p-6 sm:p-8">
+            <div className="mx-auto w-full max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ConfirmProvider>
   );
 }

@@ -32,7 +32,8 @@ export function DataTable<Row>({ columns, rows, empty, rowKey }: DataTableProps<
                 scope="col"
                 className={cn(
                   "px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5",
-                  column.className
+                  column.className,
+                  column.className?.includes("sticky") && "bg-elevated z-20"
                 )}
               >
                 {column.header}

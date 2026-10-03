@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { RoleBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils/cn";
 import type { UserRole } from "@/types";
 
@@ -655,29 +656,21 @@ function AccountRow({
 
   function resetPassword() {
     setMenuOpen(false);
-    const password = window.prompt(
-      `Enter a new password for ${account.email} (minimum 8 characters):`
-    );
-    if (!password) return;
-    run(async () => {
-      const result = await resetAccountPassword(account.id, password);
-      report({
-        kind: result.success ? "success" : "error",
-        text: result.success
-          ? `Password updated for ${account.email}.`
-          : result.error ?? "Password reset failed.",
-      });
-    });
+    onEdit();
   }
 
-  function removeAccount() {
+  const confirm = useConfirm();
+
+  async function removeAccount() {
     setMenuOpen(false);
-    if (
-      !window.confirm(
-        `Are you sure you want to permanently delete ${account.email}? This action cannot be undone.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete User Account",
+      description: `Are you sure you want to permanently delete account "${account.email}"? This action cannot be undone.`,
+      confirmLabel: "Delete Account",
+      variant: "danger",
+    });
+    if (!ok) return;
+
     run(async () => {
       const result = await deleteAccount(account.id);
       report({

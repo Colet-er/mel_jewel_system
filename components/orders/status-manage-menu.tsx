@@ -23,6 +23,7 @@ import {
 } from "@/app/(dashboard)/orders/reserved/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PaymentFormModal } from "@/components/orders/payment-form";
 
 export type StatusViewKind = "paid" | "shipped" | "claimed" | "cancelled" | "rto";
@@ -101,9 +102,18 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     setOpen((current) => !current);
   }
 
-  function handleShip() {
+  const confirm = useConfirm();
+
+  async function handleShip() {
     setOpen(false);
-    if (!window.confirm(`Mark order ${row.invoiceNumber} as shipped?`)) return;
+    const ok = await confirm({
+      title: "Ship Order",
+      description: `Mark order ${row.invoiceNumber} as shipped?`,
+      confirmLabel: "Mark as Shipped",
+      variant: "primary",
+    });
+    if (!ok) return;
+
     startTransition(async () => {
       try {
         await shipSelectedOrders([row.id]);
@@ -113,9 +123,16 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     });
   }
 
-  function handleClaim() {
+  async function handleClaim() {
     setOpen(false);
-    if (!window.confirm(`Mark order ${row.invoiceNumber} as claimed?`)) return;
+    const ok = await confirm({
+      title: "Claim Order",
+      description: `Mark order ${row.invoiceNumber} as claimed?`,
+      confirmLabel: "Mark as Claimed",
+      variant: "primary",
+    });
+    if (!ok) return;
+
     startTransition(async () => {
       try {
         await claimSelectedOrders([row.id]);
@@ -125,9 +142,16 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     });
   }
 
-  function handleReship() {
+  async function handleReship() {
     setOpen(false);
-    if (!window.confirm(`Re-ship order ${row.invoiceNumber} back to Shipped?`)) return;
+    const ok = await confirm({
+      title: "Re-ship Order",
+      description: `Re-ship order ${row.invoiceNumber} back to Shipped status?`,
+      confirmLabel: "Re-ship Order",
+      variant: "primary",
+    });
+    if (!ok) return;
+
     startTransition(async () => {
       try {
         await shipSelectedOrders([row.id]);
@@ -154,15 +178,19 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     });
   }
 
-  function handleCancel() {
+  async function handleCancel() {
     setOpen(false);
-    const reason = window.prompt(
-      `Cancel order ${row.invoiceNumber}? This cannot be undone. Optional cancellation reason:`
-    );
-    if (reason === null) return;
+    const ok = await confirm({
+      title: "Cancel Order",
+      description: `Are you sure you want to cancel order ${row.invoiceNumber}? This action cannot be undone.`,
+      confirmLabel: "Cancel Order",
+      variant: "danger",
+    });
+    if (!ok) return;
+
     startTransition(async () => {
       try {
-        await cancelSelectedOrders([row.id], reason);
+        await cancelSelectedOrders([row.id]);
       } catch (err) {
         console.error("Cancel failed:", err);
       }

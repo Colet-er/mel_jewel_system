@@ -6,6 +6,7 @@ import { LoaderCircle, Pencil, Plus, Save, Tags, Trash2, X } from "lucide-react"
 import { deleteCategory, saveCategory } from "@/app/(dashboard)/categories/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface CategoryItemValues {
   id: string;
@@ -17,10 +18,12 @@ export interface CategoryItemValues {
 interface CategoryFormProps {
   initial?: CategoryItemValues;
   onClose: () => void;
+  onSuccess?: (message: string) => void;
 }
 
-function CategoryFormModal({ initial, onClose }: CategoryFormProps) {
+function CategoryFormModal({ initial, onClose, onSuccess }: CategoryFormProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +42,23 @@ function CategoryFormModal({ initial, onClose }: CategoryFormProps) {
     };
   }, [isPending, onClose]);
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
 
     if (!name.trim()) {
       setError("Category name is required.");
       return;
+    }
+
+    if (initial) {
+      const ok = await confirm({
+        title: "Save Category Changes",
+        description: `Are you sure you want to save changes to category "${name.trim() || initial.name}"?`,
+        confirmLabel: "Save Changes",
+        variant: "primary",
+      });
+      if (!ok) return;
     }
 
     startTransition(async () => {
@@ -60,6 +73,7 @@ function CategoryFormModal({ initial, onClose }: CategoryFormProps) {
         return;
       }
 
+      onSuccess?.(result.message || (initial ? "Category changes saved successfully." : "Category added successfully."));
       router.refresh();
       onClose();
     });
@@ -159,7 +173,11 @@ function CategoryFormModal({ initial, onClose }: CategoryFormProps) {
   );
 }
 
-export function AddCategoryButton() {
+export function AddCategoryButton({
+  onSuccess,
+}: {
+  onSuccess?: (message: string) => void;
+} = {}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -167,26 +185,43 @@ export function AddCategoryButton() {
         <Plus className="h-4 w-4" aria-hidden />
         Add Category
       </Button>
-      {open ? <CategoryFormModal onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <CategoryFormModal
+          onClose={() => setOpen(false)}
+          onSuccess={onSuccess}
+        />
+      ) : null}
     </>
   );
 }
 
-export function CategoryRowActions({ item }: { item: CategoryItemValues }) {
+export function CategoryRowActions({
+  item,
+  onSuccess,
+}: {
+  item: CategoryItemValues;
+  onSuccess?: (message: string) => void;
+}) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleDelete() {
+  async function handleDelete() {
     const warning =
       item.productCount && item.productCount > 0
-        ? `Delete category "${item.name}"? ${item.productCount} products are currently assigned to it.`
-        : `Delete category "${item.name}"?`;
+        ? `Are you sure you want to delete category "${item.name}"? ${item.productCount} products are currently assigned to it.`
+        : `Are you sure you want to delete category "${item.name}"?`;
 
-    if (!window.confirm(warning)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete Category",
+      description: warning,
+      confirmLabel: "Delete Category",
+      variant: "danger",
+    });
+    if (!ok) return;
+
     setError(null);
     startTransition(async () => {
       const result = await deleteCategory(item.id);
@@ -194,6 +229,7 @@ export function CategoryRowActions({ item }: { item: CategoryItemValues }) {
         setError(result.message || "Failed to delete category.");
         return;
       }
+      onSuccess?.(result.message || `Category "${item.name}" deleted successfully.`);
       router.refresh();
     });
   }
@@ -221,6 +257,7 @@ export function CategoryRowActions({ item }: { item: CategoryItemValues }) {
         <CategoryFormModal
           initial={item}
           onClose={() => setEditing(false)}
+          onSuccess={onSuccess}
         />
       ) : null}
     </div>

@@ -10,6 +10,7 @@ import {
 } from "@/app/(dashboard)/orders/reserved/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { formatCurrency } from "@/lib/utils/format";
 import { PAYMENT_METHODS } from "@/lib/utils/payment-validation";
 import { createClient } from "@/lib/supabase/client";
@@ -123,6 +124,7 @@ interface ReservationFormModalProps {
   orderId?: string;
   initial?: Partial<ReservationFormValues>;
   onClose: () => void;
+  onSuccess?: (message: string) => void;
 }
 
 interface MoissaniteInventoryOption {
@@ -154,6 +156,22 @@ function parseNumber(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+function isMoissaniteProduct(product: {
+  name: string;
+  sku?: string | null;
+  category?: { name: string } | null;
+}): boolean {
+  const cat = (product.category?.name ?? "").toLowerCase().trim();
+  const sku = (product.sku ?? "").toUpperCase().trim();
+  const name = product.name.toLowerCase().trim();
+  return (
+    cat === "moissanite" ||
+    cat.includes("moissanite") ||
+    sku.startsWith("MOISS") ||
+    name.includes("moissanite")
+  );
+}
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -163,8 +181,10 @@ export function ReservationFormModal({
   orderId,
   initial,
   onClose,
+  onSuccess,
 }: ReservationFormModalProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const baseId = useId();
   const [values, setValues] = useState<ReservationFormValues>(() => normalizeInitialValues(initial));
   const [error, setError] = useState<string | null>(null);
@@ -209,15 +229,67 @@ export function ReservationFormModal({
           category: Array.isArray(item.category) ? item.category[0] ?? null : item.category,
         })) as MoissaniteInventoryOption[];
         setInventoryItems(items);
+
+        // Auto-link selectedInventoryId if matching SKU or name exists
+        setValues((current) => {
+          let updated = false;
+          const nextItems = current.items.map((it) => {
+            if (it.itemSource === "moissanite" && !it.selectedInventoryId) {
+              const matched = items.find(
+                (inv) =>
+                  (it.itemCode && inv.sku.toLowerCase() === it.itemCode.toLowerCase()) ||
+                  (it.itemName &&
+                    (inv.item_name.toLowerCase() === it.itemName.toLowerCase() ||
+                      inv.description?.toLowerCase() === it.itemName.toLowerCase()))
+              );
+              if (matched) {
+                updated = true;
+                return {
+                  ...it,
+                  selectedInventoryId: matched.id,
+                  category: it.category || matched.category?.name || "Moissanite",
+                };
+              }
+            }
+            return it;
+          });
+          return updated ? { ...current, items: nextItems } : current;
+        });
       }
 
       if (!productsResult.error && productsResult.data) {
-        const products = productsResult.data.map((prod) => ({
-          ...prod,
-          price: Number(prod.price),
-          category: Array.isArray(prod.category) ? prod.category[0] ?? null : prod.category,
-        })) as ProductCatalogOption[];
+        const products = productsResult.data
+          .map((prod) => ({
+            ...prod,
+            price: Number(prod.price),
+            category: Array.isArray(prod.category) ? prod.category[0] ?? null : prod.category,
+          }))
+          .filter((prod) => !isMoissaniteProduct(prod)) as ProductCatalogOption[];
         setProductItems(products);
+
+        // Auto-link selectedProductId if matching SKU or name exists
+        setValues((current) => {
+          let updated = false;
+          const nextItems = current.items.map((it) => {
+            if (it.itemSource === "product" && !it.selectedProductId) {
+              const matched = products.find(
+                (p) =>
+                  (it.itemCode && p.sku && p.sku.toLowerCase() === it.itemCode.toLowerCase()) ||
+                  (it.itemName && p.name.toLowerCase() === it.itemName.toLowerCase())
+              );
+              if (matched) {
+                updated = true;
+                return {
+                  ...it,
+                  selectedProductId: matched.id,
+                  category: it.category || matched.category?.name || "Jewelry",
+                };
+              }
+            }
+            return it;
+          });
+          return updated ? { ...current, items: nextItems } : current;
+        });
       }
     });
     return () => {
@@ -270,6 +342,7 @@ export function ReservationFormModal({
     setValues((current) => {
       const nextItems = [...current.items];
       if (item) {
+        const itemCat = item.category?.name?.trim() || "Moissanite";
         nextItems[index] = {
           ...nextItems[index],
           selectedInventoryId: inventoryId,
@@ -277,7 +350,7 @@ export function ReservationFormModal({
           itemSource: "moissanite",
           itemCode: item.sku,
           itemName: item.description || item.item_name,
-          category: item.category?.name ?? "Moissanite",
+          category: itemCat,
           price: item.selling_price.toFixed(2),
         };
       } else {
@@ -286,7 +359,6 @@ export function ReservationFormModal({
           selectedInventoryId: "",
           itemCode: "",
           itemName: "",
-          category: "",
           price: "",
         };
       }
@@ -300,6 +372,7 @@ export function ReservationFormModal({
     setValues((current) => {
       const nextItems = [...current.items];
       if (product) {
+        const prodCat = product.category?.name?.trim() || "Jewelry";
         nextItems[index] = {
           ...nextItems[index],
           selectedProductId: productId,
@@ -307,7 +380,7 @@ export function ReservationFormModal({
           itemSource: "product",
           itemCode: product.sku || "",
           itemName: product.name,
-          category: product.category?.name ?? "General",
+          category: prodCat,
           price: product.price.toFixed(2),
         };
       } else {
@@ -380,34 +453,36 @@ export function ReservationFormModal({
     };
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (isPending) return;
 
     for (let i = 0; i < values.items.length; i++) {
       const item = values.items[i];
-      if (item.itemSource === "moissanite" && !item.selectedInventoryId) {
-        setError(`Select a Moissanite item for line item #${i + 1}.`);
-        return;
-      }
-      if (item.itemSource === "product" && !item.selectedProductId) {
-        setError(`Select a product for line item #${i + 1}.`);
-        return;
-      }
       if (!item.itemName.trim()) {
-        setError(`Item name is required for line item #${i + 1}.`);
+        setError(`Item name is required for Item #${i + 1}.`);
         return;
       }
       const qty = parseNumber(item.quantity);
       if (!Number.isFinite(qty) || qty < 1) {
-        setError(`Quantity must be at least 1 for line item #${i + 1}.`);
+        setError(`Quantity must be at least 1 for Item #${i + 1}.`);
         return;
       }
       const price = parseNumber(item.price);
       if (!Number.isFinite(price) || price < 0) {
-        setError(`Price cannot be negative for line item #${i + 1}.`);
+        setError(`Price cannot be negative for Item #${i + 1}.`);
         return;
       }
+    }
+
+    if (mode === "edit") {
+      const ok = await confirm({
+        title: "Save Reservation Changes",
+        description: "Are you sure you want to save the changes to this reservation?",
+        confirmLabel: "Save Changes",
+        variant: "primary",
+      });
+      if (!ok) return;
     }
 
     const input = buildInput();
@@ -419,6 +494,11 @@ export function ReservationFormModal({
           : await updateReservation(orderId ?? "", input);
 
       if (result.ok) {
+        const successMsg =
+          mode === "create"
+            ? "Reservation successfully created."
+            : "Reservation changes successfully saved.";
+        onSuccess?.(successMsg);
         router.refresh();
         onClose();
       } else {
@@ -523,12 +603,12 @@ export function ReservationFormModal({
             </div>
           </div>
 
-          {/* Items Section for Bulk Ordering */}
+          {/* Items Section */}
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-pink-light">
-                  Order Items ({values.items.length} {values.items.length === 1 ? "Item" : "Items"} — Bulk Ordering)
+                  Order Items
                 </h3>
               </div>
               <Button
@@ -572,9 +652,9 @@ export function ReservationFormModal({
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      <div>
-                        <Label htmlFor={`item-source-${item.id}`}>Item Source</Label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
+                      <div className="lg:col-span-3">
+                        <Label htmlFor={`item-source-${item.id}`}>Type</Label>
                         <select
                           id={`item-source-${item.id}`}
                           value={item.itemSource}
@@ -590,13 +670,13 @@ export function ReservationFormModal({
                           }}
                           className={selectClass}
                         >
-                          <option value="product">Product Catalog</option>
-                          <option value="moissanite">Moissanite Catalog</option>
+                          <option value="product">Jewelry</option>
+                          <option value="moissanite">Moissanite</option>
                         </select>
                       </div>
 
                       {item.itemSource === "moissanite" ? (
-                        <div className="sm:col-span-2">
+                        <div className="sm:col-span-2 lg:col-span-9">
                           <Label htmlFor={`item-inventory-${item.id}`}>Moissanite Catalog Item</Label>
                           <select
                             id={`item-inventory-${item.id}`}
@@ -604,10 +684,11 @@ export function ReservationFormModal({
                             onChange={(e) => handleSelectInventoryItem(index, e.target.value)}
                             className={selectClass}
                             disabled={inventoryLoading || Boolean(inventoryLoadError)}
-                            required
                           >
                             <option value="">
-                              {inventoryLoading ? "Loading catalog…" : "Select a Moissanite item"}
+                              {inventoryLoading
+                                ? "Loading Moissanite…"
+                                : "Select from Moissanite catalog (or type details below)"}
                             </option>
                             {inventoryItems.map((inv) => (
                               <option key={inv.id} value={inv.id}>
@@ -617,18 +698,19 @@ export function ReservationFormModal({
                           </select>
                         </div>
                       ) : (
-                        <div className="sm:col-span-2">
-                          <Label htmlFor={`item-product-${item.id}`}>Product Catalog Item</Label>
+                        <div className="sm:col-span-2 lg:col-span-9">
+                          <Label htmlFor={`item-product-${item.id}`}>Jewelry Catalog Item</Label>
                           <select
                             id={`item-product-${item.id}`}
                             value={item.selectedProductId || ""}
                             onChange={(e) => handleSelectProductItem(index, e.target.value)}
                             className={selectClass}
                             disabled={inventoryLoading}
-                            required
                           >
                             <option value="">
-                              {inventoryLoading ? "Loading catalog…" : "Select a product"}
+                              {inventoryLoading
+                                ? "Loading jewelry…"
+                                : "Select from Jewelry catalog (or type details below)"}
                             </option>
                             {productItems.map((prod) => (
                               <option key={prod.id} value={prod.id}>
@@ -639,7 +721,7 @@ export function ReservationFormModal({
                         </div>
                       )}
 
-                      <div>
+                      <div className="sm:col-span-2 lg:col-span-5">
                         <Label htmlFor={`item-name-${item.id}`}>Item Name</Label>
                         <Input
                           id={`item-name-${item.id}`}
@@ -650,19 +732,19 @@ export function ReservationFormModal({
                         />
                       </div>
 
-                      <div>
-                        <Label htmlFor={`item-category-${item.id}`}>Category</Label>
+                      <div className="lg:col-span-2">
+                        <Label htmlFor={`item-code-${item.id}`}>SKU / Code</Label>
                         <Input
-                          id={`item-category-${item.id}`}
-                          value={item.category}
-                          onChange={(e) => handleUpdateItem(index, "category", e.target.value)}
-                          placeholder="e.g. Pearls, Ring"
+                          id={`item-code-${item.id}`}
+                          value={item.itemCode}
+                          onChange={(e) => handleUpdateItem(index, "itemCode", e.target.value)}
+                          placeholder="Optional"
                           autoComplete="off"
                         />
                       </div>
 
-                      <div>
-                        <Label htmlFor={`item-qty-${item.id}`}>Quantity</Label>
+                      <div className="lg:col-span-1">
+                        <Label htmlFor={`item-qty-${item.id}`}>Qty</Label>
                         <Input
                           id={`item-qty-${item.id}`}
                           type="number"
@@ -673,7 +755,7 @@ export function ReservationFormModal({
                         />
                       </div>
 
-                      <div>
+                      <div className="lg:col-span-2">
                         <Label htmlFor={`item-price-${item.id}`}>Unit Price</Label>
                         <Input
                           id={`item-price-${item.id}`}
@@ -686,8 +768,8 @@ export function ReservationFormModal({
                         />
                       </div>
 
-                      <div className="flex flex-col justify-end">
-                        <Label>Line Total</Label>
+                      <div className="flex flex-col justify-end sm:col-span-2 lg:col-span-2">
+                        <Label>Total</Label>
                         <div className="flex h-10 items-center justify-end rounded-lg border border-white/10 bg-white/[0.03] px-3 font-semibold text-pink-light">
                           {formatCurrency(itemTotal)}
                         </div>
@@ -699,13 +781,13 @@ export function ReservationFormModal({
             </div>
           </div>
 
-          {/* Pricing & Downpayment Breakdown */}
+          {/* Payment Breakdown */}
           <div className="space-y-4 border-t border-white/[0.07] pt-4">
-            <h3 className={sectionHeadingClass}>Payment & Totals</h3>
+            <h3 className={sectionHeadingClass}>Payment Details</h3>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               <div>
-                <Label htmlFor={`${baseId}-subtotal`}>Subtotal (Items)</Label>
+                <Label htmlFor={`${baseId}-subtotal`}>Subtotal</Label>
                 <Input
                   id={`${baseId}-subtotal`}
                   value={hasValidItems ? formatCurrency(subtotal) : "—"}
@@ -742,7 +824,7 @@ export function ReservationFormModal({
               </div>
 
               <div>
-                <Label htmlFor={`${baseId}-grand-total`}>Total Amount</Label>
+                <Label htmlFor={`${baseId}-grand-total`}>Total</Label>
                 <Input
                   id={`${baseId}-grand-total`}
                   value={hasValidItems ? formatCurrency(grandTotal) : "—"}
@@ -754,7 +836,7 @@ export function ReservationFormModal({
               </div>
 
               <div>
-                <Label htmlFor={`${baseId}-downpayment`}>Downpayment (DP)</Label>
+                <Label htmlFor={`${baseId}-downpayment`}>Downpayment</Label>
                 <Input
                   id={`${baseId}-downpayment`}
                   type="number"
@@ -768,7 +850,7 @@ export function ReservationFormModal({
 
               {needsDownpaymentMethod ? (
                 <div className="sm:col-span-2">
-                  <Label htmlFor={`${baseId}-downpayment-method`}>DP Payment Method</Label>
+                  <Label htmlFor={`${baseId}-downpayment-method`}>Payment Method</Label>
                   <select
                     id={`${baseId}-downpayment-method`}
                     value={values.downpaymentMethod}

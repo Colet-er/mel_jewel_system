@@ -9,6 +9,7 @@ import {
 } from "@/app/(dashboard)/moissanite/sku/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface InventoryCategory {
   id: string;
@@ -28,13 +29,15 @@ interface InventoryFormProps {
   categories: InventoryCategory[];
   initial?: InventoryItemValues;
   onClose: () => void;
+  onSuccess?: (message: string) => void;
 }
 
 const selectClass =
   "h-11 w-full rounded-lg border border-white/10 bg-background/70 px-3 text-sm text-foreground shadow-inner shadow-black/5 transition hover:border-white/20 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10";
 
-function InventoryForm({ categories, initial, onClose }: InventoryFormProps) {
+function InventoryForm({ categories, initial, onClose, onSuccess }: InventoryFormProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [itemNumber, setItemNumber] = useState(initial?.itemNumber ?? "");
   const [itemDescription, setItemDescription] = useState(initial?.itemDescription ?? "");
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
@@ -56,9 +59,20 @@ function InventoryForm({ categories, initial, onClose }: InventoryFormProps) {
     };
   }, [isPending, onClose]);
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+
+    if (initial) {
+      const ok = await confirm({
+        title: "Save Moissanite Item Changes",
+        description: `Are you sure you want to save changes to Moissanite item "${itemNumber || initial.itemNumber}"?`,
+        confirmLabel: "Save Changes",
+        variant: "primary",
+      });
+      if (!ok) return;
+    }
+
     startTransition(async () => {
       const result = await saveMoissaniteInventory({
         id: initial?.id,
@@ -69,6 +83,7 @@ function InventoryForm({ categories, initial, onClose }: InventoryFormProps) {
         setting,
       });
       if (!result.ok) return setError(result.message);
+      onSuccess?.(initial ? "Moissanite item saved successfully." : "Moissanite item added successfully.");
       router.refresh();
       onClose();
     });
@@ -163,28 +178,57 @@ function InventoryForm({ categories, initial, onClose }: InventoryFormProps) {
   );
 }
 
-export function AddInventoryButton({ categories }: { categories: InventoryCategory[] }) {
+export function AddInventoryButton({
+  categories,
+  onSuccess,
+}: {
+  categories: InventoryCategory[];
+  onSuccess?: (message: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" aria-hidden />Add Moissanite Item</Button>
-      {open ? <InventoryForm categories={categories} onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <InventoryForm
+          categories={categories}
+          onClose={() => setOpen(false)}
+          onSuccess={onSuccess}
+        />
+      ) : null}
     </>
   );
 }
 
-export function InventoryRowActions({ item, categories }: { item: InventoryItemValues; categories: InventoryCategory[] }) {
+export function InventoryRowActions({
+  item,
+  categories,
+  onSuccess,
+}: {
+  item: InventoryItemValues;
+  categories: InventoryCategory[];
+  onSuccess?: (message: string) => void;
+}) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function deleteItem() {
-    if (!window.confirm(`Delete ${item.itemNumber}? It will no longer appear in the catalog or reservation item choices.`)) return;
+  async function deleteItem() {
+    const ok = await confirm({
+      title: "Delete Moissanite Item",
+      description: `Delete ${item.itemNumber}? It will no longer appear in the catalog or reservation item choices.`,
+      confirmLabel: "Delete Item",
+      variant: "danger",
+    });
+    if (!ok) return;
+
     setError(null);
     startTransition(async () => {
       const result = await deleteMoissaniteInventory(item.id);
       if (!result.ok) return setError(result.message);
+      onSuccess?.(`Moissanite item "${item.itemNumber}" deleted successfully.`);
       router.refresh();
     });
   }
@@ -196,7 +240,14 @@ export function InventoryRowActions({ item, categories }: { item: InventoryItemV
         <Button size="sm" variant="ghost" onClick={deleteItem} disabled={isPending} className="text-muted hover:text-danger"><Trash2 className="h-3.5 w-3.5" aria-hidden />{isPending ? "Deleting…" : "Delete"}</Button>
       </div>
       {error ? <p className="mt-2 max-w-52 text-xs text-danger" role="alert">{error}</p> : null}
-      {editing ? <InventoryForm categories={categories} initial={item} onClose={() => setEditing(false)} /> : null}
+      {editing ? (
+        <InventoryForm
+          categories={categories}
+          initial={item}
+          onClose={() => setEditing(false)}
+          onSuccess={onSuccess}
+        />
+      ) : null}
     </div>
   );
 }

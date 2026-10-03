@@ -28,9 +28,9 @@ describe("validateReservationInput", () => {
     expect(validateReservationInput(validInput)).toBeNull();
   });
 
-  it("fails when customer name is missing", () => {
-    expect(validateReservationInput({ ...validInput, customerName: "" })).toBe("Customer name is required.");
-    expect(validateReservationInput({ ...validInput, customerName: "   " })).toBe("Customer name is required.");
+  it("passes when customer name is empty (shipping info optional)", () => {
+    expect(validateReservationInput({ ...validInput, customerName: "" })).toBeNull();
+    expect(validateReservationInput({ ...validInput, customerName: "   " })).toBeNull();
   });
 
   it("fails when item name is missing", () => {

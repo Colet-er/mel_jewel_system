@@ -5,16 +5,24 @@ import { useRouter } from "next/navigation";
 import { Truck } from "lucide-react";
 import { shipSelectedOrders } from "@/app/(dashboard)/orders/reserved/actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /** Marks a single paid order as shipped via the mark_order_shipped RPC. */
 export function ShipOrderButton({ orderId }: { orderId: string }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleClick() {
+  async function handleClick() {
     if (isPending) return;
-    if (!window.confirm("Mark this order as shipped?")) return;
+    const ok = await confirm({
+      title: "Ship Order",
+      description: "Mark this order as shipped?",
+      confirmLabel: "Mark as Shipped",
+      variant: "primary",
+    });
+    if (!ok) return;
 
     startTransition(async () => {
       setError(null);

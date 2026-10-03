@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Truck } from "lucide-react";
 import { shipSelectedOrders } from "@/app/(dashboard)/orders/reserved/actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /** Re-ships an RTO order back to Shipped via the mark_order_shipped RPC. */
 export function ReshipOrderButton({
@@ -15,13 +16,20 @@ export function ReshipOrderButton({
   invoiceNumber?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleClick() {
+  async function handleClick() {
     if (isPending) return;
     const label = invoiceNumber ? `order ${invoiceNumber}` : "this order";
-    if (!window.confirm(`Re-ship ${label} back to Shipped?`)) return;
+    const ok = await confirm({
+      title: "Re-ship Order",
+      description: `Re-ship ${label} back to Shipped status?`,
+      confirmLabel: "Re-ship",
+      variant: "primary",
+    });
+    if (!ok) return;
 
     startTransition(async () => {
       setError(null);

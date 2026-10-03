@@ -29,8 +29,10 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Moissanite",
+    label: "Products",
     items: [
+      { label: "Products", href: "/products", icon: "package" },
+      { label: "Categories", href: "/categories", icon: "tags" },
       { label: "Sold Moissanite", href: "/moissanite/sold", icon: "shopping-bag" },
     ],
   },
@@ -42,13 +44,6 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     items: [{ label: "Customers", href: "/customers", icon: "users" }],
-  },
-  {
-    label: "Products",
-    items: [
-      { label: "Products", href: "/products", icon: "package" },
-      { label: "Categories", href: "/categories", icon: "tags" },
-    ],
   },
   {
     label: "Developer",

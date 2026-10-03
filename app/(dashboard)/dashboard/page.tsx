@@ -12,13 +12,15 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Order } from "@/types";
+import { getCurrentProfile } from "@/lib/supabase/auth";
+import { isDeveloperEmail } from "@/lib/auth/developer";
 import {
-  computeTotals,
   describeDbError,
   fetchAvailableStock,
   fetchOrderStatusCounts,
   fetchOrders,
   fetchPendingDownpaymentOrders,
+  fetchSoldMoissanite,
   settledDownpayment,
 } from "@/lib/supabase/queries";
 import { formatDateTime } from "@/lib/utils/format";
@@ -29,6 +31,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { StatCard } from "@/components/ui/stat-card";
+import { cn } from "@/lib/utils/cn";
 
 const MAX_TABLE_ROWS = 8;
 
@@ -205,24 +208,32 @@ export default async function DashboardPage() {
   let pendingCount = 0;
   let soldThisMonth: number | null = null;
   let availableStock: number | null = null;
+  let isOwnerOrDev = false;
 
   try {
+    const { user, profile } = await getCurrentProfile();
+    const isDev = isDeveloperEmail(user?.email);
+    isOwnerOrDev = profile?.role === "owner" || isDev;
+
     const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
     // Run all dashboard database queries in parallel for high response speed
-    const [counts, pending, monthOrders, stock] = await Promise.all([
-      fetchOrderStatusCounts(),
-      fetchPendingDownpaymentOrders(),
-      fetchOrders({
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-      }),
+    const [counts, pending, stock, monthSoldMoiss] = await Promise.all([
+      fetchOrderStatusCounts({ month: currentMonth, year: currentYear }),
+      fetchPendingDownpaymentOrders({ month: currentMonth, year: currentYear }),
       fetchAvailableStock(),
+      fetchSoldMoissanite({ month: currentMonth, year: currentYear }),
     ]);
 
     statusCounts = counts;
     pendingCount = pending.length;
     pendingRows = buildRows(pending);
-    soldThisMonth = computeTotals(monthOrders).itemsSold;
+    soldThisMonth = (monthSoldMoiss ?? []).reduce(
+      (sum, item) => sum + Number(item.quantity || 1),
+      0
+    );
     availableStock = stock;
   } catch (error) {
     dbError = describeDbError(error);
@@ -254,7 +265,10 @@ export default async function DashboardPage() {
       {/* 5. Summary cards */}
       <section
         aria-label="Summary"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        className={cn(
+          "grid grid-cols-1 gap-4 sm:grid-cols-2",
+          isOwnerOrDev ? "xl:grid-cols-4" : "xl:grid-cols-4"
+        )}
       >
         <StatCard
           label="ACTIVE RESERVATIONS"
@@ -264,13 +278,24 @@ export default async function DashboardPage() {
           href="/orders/reserved"
           variant="primary"
         />
-        <StatCard
-          label="PASABUY PENDING"
-          value={null}
-          hint="Pre-orders in queue"
-          icon={<PackageCheck className="h-4 w-4" aria-hidden />}
-          variant="warning"
-        />
+        {isOwnerOrDev ? (
+          <StatCard
+            label="PASABUY PENDING"
+            value={null}
+            hint="Pre-orders in queue"
+            icon={<PackageCheck className="h-4 w-4" aria-hidden />}
+            variant="warning"
+          />
+        ) : (
+          <StatCard
+            label="SHIPPED"
+            value={statusCounts.shipped !== null ? String(statusCounts.shipped) : null}
+            hint="Orders in transit"
+            icon={<Truck className="h-4 w-4" aria-hidden />}
+            href="/orders/shipped"
+            variant="warning"
+          />
+        )}
         <StatCard
           label="FULLY PAID"
           value={statusCounts.paid !== null ? String(statusCounts.paid) : null}
@@ -331,34 +356,40 @@ export default async function DashboardPage() {
 
       {/* 7. Bottom information cards */}
       <section
-        aria-label="Pasabuy and stock"
-        className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+        aria-label="Moissanite and commissions"
+        className={cn(
+          "grid grid-cols-1 gap-6",
+          isOwnerOrDev ? "lg:grid-cols-2" : "lg:grid-cols-1"
+        )}
       >
-        {/* Pasabuy & Commissions */}
-        <Card>
-          <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">
-                Pasabuy &amp; Commissions
-              </h2>
-              <p className="text-xs text-muted">Fulfillment and sales pipeline</p>
+        {/* Pasabuy & Commissions (Owner and Developer Only) */}
+        {isOwnerOrDev ? (
+          <Card>
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  Pasabuy &amp; Commissions
+                </h2>
+                <p className="text-xs text-muted">Fulfillment and sales pipeline</p>
+              </div>
+              <Truck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             </div>
-            <Truck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-          </div>
-          <CardContent className="p-5 sm:p-6">
-            <MetricRow
-              icon={<Truck />}
-              label="Pre-orders in Transit"
-              value={statusCounts.shipped !== null ? statusCounts.shipped : 3}
-              href="/orders/shipped"
-            />
-            <MetricRow
-              icon={<PackageCheck />}
-              label="Top Sales Channel"
-              value={null}
-            />
-          </CardContent>
-        </Card>
+            <CardContent className="p-5 sm:p-6">
+              <MetricRow
+                icon={<Truck />}
+                label="Pre-orders in Transit"
+                value={statusCounts.shipped !== null ? statusCounts.shipped : 0}
+                href="/orders/shipped"
+              />
+              <MetricRow
+                icon={<PackageCheck />}
+                label="Commission Management"
+                value="View Records"
+                href="/commission"
+              />
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* Moissanite Stock */}
         <Card>
@@ -374,14 +405,14 @@ export default async function DashboardPage() {
           <CardContent className="p-5 sm:p-6">
             <MetricRow
               icon={<Gem />}
-              label="Available Stone"
+              label="Available Stones"
               value={availableStock !== null ? availableStock.toLocaleString("en-US") : 0}
-              href="/products?tab=moissanite"
+              href="/products"
             />
             <MetricRow
               icon={<PackageCheck />}
               label="Sold This Month"
-              value={soldThisMonth !== null ? soldThisMonth.toLocaleString("en-US") : 5}
+              value={soldThisMonth !== null ? soldThisMonth.toLocaleString("en-US") : 0}
               href="/moissanite/sold"
             />
           </CardContent>
