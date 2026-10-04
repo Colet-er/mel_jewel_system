@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isDeveloperEmail } from "@/lib/auth/developer";
 import type { UserRole } from "@/types";
 
-const roleSchema = z.enum(["owner", "admin", "staff", "viewer"]);
+const roleSchema = z.enum(["developer", "owner", "admin", "staff", "viewer"]);
 const accountIdSchema = z.string().uuid();
 
 export interface AccountActionResult {
@@ -15,18 +15,19 @@ export interface AccountActionResult {
   error?: string;
 }
 
-async function requireDeveloper() {
+async function requireDeveloperOrOwner() {
   const { user, profile } = await getCurrentProfile();
-  const isDev = isDeveloperEmail(user.email);
-  if (!isDev) {
-    throw new Error("Developer portal access is required.");
+  const isDev = isDeveloperEmail(user?.email) || profile?.role === "developer";
+  const isOwner = profile?.role === "owner";
+  if (!isDev && !isOwner) {
+    throw new Error("Unauthorized: Developer or Owner access required to manage accounts.");
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error(
       "SUPABASE_SERVICE_ROLE_KEY is not configured in .env.local. Please add your Supabase service role secret key."
     );
   }
-  return { user, profile, isDev, admin: createAdminClient() };
+  return { user, profile, isDev, isOwner, admin: createAdminClient() };
 }
 
 export async function createAccount(input: {
@@ -51,7 +52,7 @@ export async function createAccount(input: {
   }
 
   try {
-    const { admin } = await requireDeveloper();
+    const { admin } = await requireDeveloperOrOwner();
     const { data, error } = await admin.auth.admin.createUser({
       email: parsed.data.email,
       password: parsed.data.password,
@@ -91,7 +92,7 @@ export async function updateAccountRole(
   }
 
   try {
-    const { isDev, admin } = await requireDeveloper();
+    const { isDev, admin } = await requireDeveloperOrOwner();
     const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(
       parsedId.data
     );
@@ -148,7 +149,7 @@ export async function updateAccountCredentials(input: {
   }
 
   try {
-    const { isDev, admin } = await requireDeveloper();
+    const { isDev, admin } = await requireDeveloperOrOwner();
     const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(
       parsed.data.accountId
     );
@@ -245,7 +246,7 @@ export async function resetAccountPassword(
   }
 
   try {
-    const { isDev, admin } = await requireDeveloper();
+    const { isDev, admin } = await requireDeveloperOrOwner();
     const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(
       parsed.data.accountId
     );
@@ -276,7 +277,7 @@ export async function deleteAccount(accountId: string): Promise<AccountActionRes
   if (!parsedId.success) return { success: false, error: "Invalid account." };
 
   try {
-    const { user, isDev, admin } = await requireDeveloper();
+    const { user, isDev, admin } = await requireDeveloperOrOwner();
     if (user.id === parsedId.data) {
       return { success: false, error: "You cannot delete your own signed-in account." };
     }

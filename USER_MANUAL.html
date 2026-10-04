@@ -3,28 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Manual — Daily Pearls PH Order Management System</title>
+  <title>Daily Pearls PH — Order Management System (OMS) User Manual</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
     :root {
-      --primary: #ec4899;
-      --primary-dark: #be185d;
-      --primary-light: #fbcfe8;
-      --primary-50: #fdf2f8;
-      --accent: #8b5cf6;
-      --text-main: #18181b;
-      --text-muted: #71717a;
-      --text-light: #a1a1aa;
-      --bg-main: #ffffff;
-      --bg-alt: #f8fafc;
-      --bg-card: #ffffff;
-      --border: #e2e8f0;
-      --border-light: #f1f5f9;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --info: #3b82f6;
+      --primary: #be185d;
+      --primary-accent: #db2777;
+      --primary-light: #fdf2f8;
+      --primary-border: #fbcfe8;
+      --navy: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+      --success: #059669;
+      --success-bg: #ecfdf5;
+      --success-border: #a7f3d0;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --warning-border: #fde68a;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      --info: #2563eb;
+      --info-bg: #eff6ff;
+      --info-border: #bfdbfe;
     }
 
     * {
@@ -34,678 +41,903 @@
     }
 
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: var(--text-main);
-      background: var(--bg-alt);
-      line-height: 1.65;
-      font-size: 14.5px;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: var(--slate-800);
+      background: #f8fafc;
+      line-height: 1.6;
+      font-size: 13.5px;
       -webkit-font-smoothing: antialiased;
     }
 
     .container {
-      max-width: 960px;
+      max-width: 920px;
       margin: 0 auto;
-      background: var(--bg-main);
-      padding: 50px 65px;
-      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.05);
-      border-radius: 12px;
+      background: #ffffff;
+      padding: 40px 48px;
     }
 
-    /* Cover / Header */
-    .cover-header {
-      border-bottom: 2px solid var(--border);
-      padding-bottom: 30px;
-      margin-bottom: 35px;
+    /* Page Breaks for PDF */
+    .page-break {
+      page-break-before: always;
+      margin-top: 30px;
+      padding-top: 20px;
+    }
+
+    .avoid-break {
+      page-break-inside: avoid;
+    }
+
+    /* Header & Hero */
+    .cover-card {
+      background: linear-gradient(135deg, #831843 0%, #be185d 50%, #db2777 100%);
+      color: #ffffff;
+      border-radius: 16px;
+      padding: 32px 36px;
+      margin-bottom: 28px;
+      box-shadow: 0 10px 25px -5px rgba(190, 24, 93, 0.3);
+    }
+
+    .cover-top {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 20px;
+      align-items: center;
+      margin-bottom: 20px;
     }
 
-    .brand-box {
-      display: flex;
-      align-items: center;
-      gap: 14px;
+    .brand-tag {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(8px);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
     }
 
-    .brand-logo {
-      width: 48px;
-      height: 48px;
-      background: var(--primary-50);
-      border: 2px solid var(--primary-light);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
+    .version-tag {
+      font-size: 12px;
+      opacity: 0.9;
+      font-weight: 600;
+    }
+
+    .cover-title {
+      font-size: 28px;
       font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+
+    .cover-subtitle {
+      font-size: 14.5px;
+      opacity: 0.95;
+      max-width: 650px;
+      line-height: 1.5;
+    }
+
+    /* Quick Jump Index */
+    .quick-index {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 18px 24px;
+      margin-bottom: 30px;
+    }
+
+    .quick-index-title {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--slate-500);
+      margin-bottom: 12px;
+    }
+
+    .quick-index-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px 16px;
+      font-size: 12.5px;
+    }
+
+    .quick-index-grid a {
+      color: var(--slate-700);
+      text-decoration: none;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .quick-index-grid a:hover {
       color: var(--primary);
     }
 
-    .brand-title {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      color: var(--primary-dark);
-      text-transform: uppercase;
-    }
-
-    .brand-subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    .doc-meta {
-      text-align: right;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .doc-badge {
-      display: inline-block;
-      background: var(--primary-50);
-      color: var(--primary-dark);
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 4px;
-      border: 1px solid var(--primary-light);
-    }
-
-    /* Typography */
-    h1 {
-      font-size: 28px;
-      font-weight: 800;
-      color: #0f172a;
-      margin-bottom: 8px;
-      letter-spacing: -0.02em;
-    }
-
+    /* Headings */
     h2 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1e293b;
-      margin-top: 36px;
-      margin-bottom: 14px;
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--navy);
+      letter-spacing: -0.02em;
+      margin: 32px 0 14px 0;
       padding-bottom: 8px;
-      border-bottom: 1.5px solid var(--border);
+      border-bottom: 2px solid var(--slate-100);
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    h2::before {
-      content: "";
-      display: inline-block;
-      width: 5px;
-      height: 20px;
-      background: var(--primary);
-      border-radius: 3px;
+    h2 .section-num {
+      background: var(--primary-light);
+      color: var(--primary);
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
     }
 
     h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #334155;
-      margin-top: 24px;
-      margin-bottom: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--slate-800);
+      margin: 18px 0 10px 0;
     }
 
     p {
-      margin-bottom: 14px;
-      color: #334155;
+      color: var(--slate-600);
+      margin-bottom: 12px;
     }
 
-    ul, ol {
-      margin-bottom: 16px;
-      padding-left: 24px;
-      color: #334155;
+    /* Easy Read Feature Cards */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 16px 0;
     }
 
-    li {
-      margin-bottom: 6px;
+    .feature-card {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
 
-    strong {
-      color: #0f172a;
+    .feature-icon {
+      font-size: 22px;
+      margin-bottom: 8px;
     }
 
-    code {
-      font-family: 'JetBrains Mono', monospace;
+    .feature-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: var(--slate-500);
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    /* Action Steps Box */
+    .step-box {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 18px;
+      margin: 14px 0;
+    }
+
+    .step-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .step-badge {
+      background: var(--navy);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      font-size: 13px;
+      color: var(--slate-700);
+    }
+
+    .step-content strong {
+      color: var(--navy);
+    }
+
+    /* Visual Callout Boxes */
+    .callout {
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 14px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .callout-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .callout-body {
       font-size: 12.5px;
-      background: #f1f5f9;
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: #be185d;
-      border: 1px solid #e2e8f0;
+      line-height: 1.5;
+    }
+
+    .callout-pink {
+      background: #fdf2f8;
+      border: 1px solid #fbcfe8;
+      color: #9d174d;
+    }
+
+    .callout-blue {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    .callout-green {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+    }
+
+    .callout-red {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
     }
 
     /* Tables */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 18px 0 24px 0;
-      font-size: 13.5px;
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid var(--border);
+      margin: 14px 0 18px 0;
+      font-size: 12.5px;
     }
 
     th {
-      background: #f8fafc;
-      color: #475569;
-      font-weight: 700;
+      background: var(--slate-100);
+      color: var(--navy);
       text-align: left;
-      padding: 10px 14px;
-      border-bottom: 1.5px solid var(--border);
-      font-size: 12px;
+      font-weight: 700;
+      padding: 9px 12px;
+      border-bottom: 2px solid var(--slate-200);
+      font-size: 11.5px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.03em;
     }
 
     td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border-light);
-      color: #334155;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--slate-200);
+      color: var(--slate-700);
+      vertical-align: middle;
     }
 
     tr:nth-child(even) td {
       background: #fafafa;
     }
 
-    /* Cards & Callouts */
-    .callout {
-      border-radius: 8px;
-      padding: 16px 18px;
-      margin: 18px 0;
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-      font-size: 13.5px;
-    }
-
-    .callout-info {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      color: #1e40af;
-    }
-
-    .callout-tip {
-      background: var(--primary-50);
-      border: 1px solid var(--primary-light);
-      color: var(--primary-dark);
-    }
-
-    .callout-warning {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      color: #92400e;
-    }
-
+    /* Status Badges */
     .badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
       padding: 2px 8px;
       border-radius: 6px;
       font-size: 11px;
       font-weight: 700;
-      text-transform: uppercase;
+      letter-spacing: 0.02em;
     }
 
-    .badge-reserved { background: #e0e7ff; color: #3730a3; }
-    .badge-paid { background: #dcfce7; color: #166534; }
-    .badge-shipped { background: #e0f2fe; color: #075985; }
-    .badge-claimed { background: #d1fae5; color: #065f46; }
-    .badge-rto { background: #fef3c7; color: #92400e; }
-    .badge-cancelled { background: #fee2e2; color: #991b1b; }
+    .badge-reserved { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .badge-paid { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .badge-shipped { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .badge-claimed { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .badge-rto { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .badge-cancelled { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 
-    /* Workflow Diagram Box */
-    .flow-chart {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 20px 0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-    }
-
-    .flow-step {
-      background: white;
-      border: 1.5px solid var(--primary);
-      color: var(--primary-dark);
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 13px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    /* Visual Pipeline Flow */
+    .pipeline-flow {
       display: flex;
       align-items: center;
-      gap: 6px;
-    }
-
-    .flow-arrow {
-      color: var(--text-muted);
-      font-weight: 800;
-      font-size: 16px;
-    }
-
-    /* Grid boxes */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      justify-content: space-between;
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 16px 20px;
       margin: 16px 0;
     }
 
-    .card-box {
-      border: 1px solid var(--border);
-      background: #ffffff;
-      padding: 18px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-
-    .card-box h4 {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--primary-dark);
-      margin-bottom: 8px;
-    }
-
-    /* TOC */
-    .toc {
-      background: #fdf2f8;
-      border: 1px solid var(--primary-light);
-      border-radius: 10px;
-      padding: 24px 30px;
-      margin-bottom: 40px;
-    }
-
-    .toc h3 {
-      color: var(--primary-dark);
-      font-size: 15px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-top: 0;
-      margin-bottom: 14px;
-    }
-
-    .toc-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 30px;
-      font-size: 13px;
-    }
-
-    .toc a {
-      color: #475569;
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.15s;
-    }
-
-    .toc a:hover {
-      color: var(--primary);
-      text-decoration: underline;
-    }
-
-    /* Footer */
-    .doc-footer {
-      border-top: 1.5px solid var(--border);
-      padding-top: 25px;
-      margin-top: 50px;
+    .flow-node {
       text-align: center;
-      color: var(--text-muted);
-      font-size: 12px;
+      flex: 1;
     }
 
-    /* Print Styles */
+    .flow-node-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-top: 4px;
+    }
+
+    .flow-node-sub {
+      font-size: 11px;
+      color: var(--slate-500);
+    }
+
+    .flow-sep {
+      color: var(--slate-400);
+      font-size: 16px;
+      padding: 0 8px;
+    }
+
+    /* Keyboard / Code badges */
+    kbd {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+      color: var(--slate-700);
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      background: var(--slate-100);
+      color: var(--primary);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    /* Mini Recipe Cards */
+    .recipe-card {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-left: 4px solid var(--primary);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+    }
+
+    .recipe-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .recipe-desc {
+      font-size: 12px;
+      color: var(--slate-600);
+      margin: 0;
+    }
+
+    /* Print Formatting */
     @media print {
       body {
-        background: white;
-        font-size: 12pt;
+        background: #ffffff;
+        font-size: 11pt;
+        color: #000000;
       }
       .container {
         padding: 0;
-        box-shadow: none;
         max-width: 100%;
+      }
+      .cover-card {
+        box-shadow: none;
+        padding: 24px;
       }
       h2 {
         page-break-after: avoid;
-        margin-top: 24pt;
+        margin-top: 18pt;
       }
-      table, .flow-chart, .callout, .card-box {
+      h3, h4 {
+        page-break-after: avoid;
+      }
+      table, .step-box, .callout, .pipeline-flow, .avoid-break {
         page-break-inside: avoid;
       }
-      .toc {
-        page-break-after: always;
+      .page-break {
+        page-break-before: always;
       }
       @page {
-        margin: 1.8cm 1.5cm;
+        margin: 1.2cm 1.0cm;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Header / Brand -->
-    <div class="cover-header">
-      <div class="brand-box">
-        <div class="brand-logo">DP</div>
-        <div>
-          <div class="brand-title">Daily Pearls PH</div>
-          <div class="brand-subtitle">Order Management System (OMS) — Standard Operating Procedure & User Manual</div>
+
+    <!-- Hero Header -->
+    <div class="cover-card">
+      <div class="cover-top">
+        <div class="brand-tag">Daily Pearls PH • Operations Manual</div>
+        <div class="version-tag">Version 2.5 • Official Guide</div>
+      </div>
+      <h1 class="cover-title">Jewelry Order Management System<br>(OMS) User &amp; Operations Manual</h1>
+      <p class="cover-subtitle">
+        A clear, step-by-step visual handbook designed for live selling hosts, sales staff, inventory managers, administrators, and owners.
+      </p>
+    </div>
+
+    <!-- Quick Navigation Index -->
+    <div class="quick-index">
+      <div class="quick-index-title">📑 Quick Jump Menu</div>
+      <div class="quick-index-grid">
+        <a href="#sec-roles">1. Role &amp; Access Matrix</a>
+        <a href="#sec-search">2. Searchable Catalog</a>
+        <a href="#sec-autocompile">3. Repeat Buyer Auto-Compile</a>
+        <a href="#sec-neworder">4. Adding a Reservation</a>
+        <a href="#sec-pipeline">5. Order Pipeline &amp; Statuses</a>
+        <a href="#sec-payments">6. Payments &amp; Proof Receipts</a>
+        <a href="#sec-shipping">7. Shipping &amp; RTO Handling</a>
+        <a href="#sec-invoices">8. Printable Invoices &amp; Chat</a>
+        <a href="#sec-moissanite">9. Moissanite Luxury SKU</a>
+        <a href="#sec-commission">10. Staff Commission Records</a>
+        <a href="#sec-reports">11. Financial Reports &amp; CSV</a>
+        <a href="#sec-faq">12. Frequently Asked Questions</a>
+      </div>
+    </div>
+
+    <!-- Section 1: Role Permissions -->
+    <h2 id="sec-roles"><span class="section-num">1</span> Role-Based Access Control (RBAC) Matrix</h2>
+    <p>
+      The system protects sensitive profit figures and confidential accounting while allowing daily live-selling operations to run quickly and smoothly:
+    </p>
+
+    <div class="avoid-break">
+      <table>
+        <thead>
+          <tr>
+            <th>Module / Function</th>
+            <th>Developer</th>
+            <th>Owner</th>
+            <th>Admin</th>
+            <th>Staff</th>
+            <th>Viewer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Orders &amp; Reservations</strong> (Create, Edit, Status)</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>Record Payments &amp; Upload Receipts</strong></td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>Shipping, Claiming, RTO &amp; Reshipping</strong></td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>Jewelry Catalog &amp; Moissanite SKUs</strong></td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>👁️ Read-Only</td>
+          </tr>
+          <tr>
+            <td><strong>Customer Database &amp; History</strong></td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>Collections Ledger</strong></td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>Employee Commission Payouts</strong> (<code>/commission</code>)</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td><span class="badge badge-rto">❌ No Access</span></td>
+            <td><span class="badge badge-rto">❌ No Access</span></td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>Financial &amp; Sales Reports</strong> (<code>/reports</code>)</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td><span class="badge badge-rto">❌ No Access</span></td>
+            <td><span class="badge badge-rto">❌ No Access</span></td>
+            <td>❌ None</td>
+          </tr>
+          <tr>
+            <td><strong>User Accounts Management</strong> (<code>/accounts</code>)</td>
+            <td>✅ Full</td>
+            <td>✅ Full</td>
+            <td><span class="badge badge-rto">❌ No Access</span></td>
+            <td>❌ None</td>
+            <td>❌ None</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-red">
+        <div class="callout-icon">🔒</div>
+        <div class="callout-body">
+          <strong>Security &amp; Confidentiality Rule:</strong> Only <strong>Developer</strong> and <strong>Owner</strong> accounts can view and manage <strong>User Accounts</strong> (<code>/accounts</code>), <strong>Commissions</strong> (<code>/commission</code>), and <strong>Financial Reports</strong> (<code>/reports</code>). Admin and Staff accounts are completely restricted from user credentials, financial metrics, and commission payouts.
         </div>
       </div>
-      <div class="doc-meta">
-        <div class="doc-badge">Official Manual</div>
-        <div>Version 2.0</div>
-        <div>Confidential & Internal</div>
+    </div>
+
+    <!-- Section 2: Searchable Catalog Combobox -->
+    <h2 id="sec-search"><span class="section-num">2</span> Searchable Jewelry Catalog Combobox</h2>
+    <p>
+      Selecting jewelry or Moissanite items during fast-paced live streams is instant. No more scrolling through hundreds of items in a standard dropdown.
+    </p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-title">Real-Time Search</div>
+        <p class="feature-desc">Type any part of the <strong>SKU</strong> (e.g. <code>SSP-01</code>), <strong>Name</strong> (e.g. <code>Solitaire</code>), or <strong>Category</strong>.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⌨️</div>
+        <div class="feature-title">Keyboard Navigation</div>
+        <p class="feature-desc">Use <kbd>↓</kbd> and <kbd>↑</kbd> arrows to highlight items and press <kbd>Enter</kbd> to select instantly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Auto-Populate</div>
+        <p class="feature-desc">Automatically fills in Item Code, Description, Category, and Unit Price with zero manual typing.</p>
       </div>
     </div>
 
-    <!-- Title -->
-    <h1>System User Manual & Operations Guide</h1>
-    <p style="font-size: 15px; color: var(--text-muted); margin-bottom: 25px;">
-      A complete, step-by-step operational guide for staff, managers, and administrators covering all aspects of order processing, live selling reservations, multi-channel payment reconciliation, Moissanite jewelry inventory, commissions, and invoicing.
-    </p>
-
-    <!-- Table of Contents -->
-    <div class="toc">
-      <h3>Table of Contents</h3>
-      <div class="toc-grid">
-        <div><a href="#sec-1">1. System Overview & Architecture</a></div>
-        <div><a href="#sec-8">8. Collections & Cash Reconciliation</a></div>
-        <div><a href="#sec-2">2. User Roles & Permission Matrix</a></div>
-        <div><a href="#sec-9">9. Moissanite Inventory & Sold Ledger</a></div>
-        <div><a href="#sec-3">3. Logging In & Navigation</a></div>
-        <div><a href="#sec-10">10. Products & Category Management</a></div>
-        <div><a href="#sec-4">4. Dashboard & Business Analytics</a></div>
-        <div><a href="#sec-11">11. Employee Commission Tracking</a></div>
-        <div><a href="#sec-5">5. Orders & Reservation Lifecycle</a></div>
-        <div><a href="#sec-12">12. Customer Directory</a></div>
-        <div><a href="#sec-6">6. Payment Processing & Evidence</a></div>
-        <div><a href="#sec-13">13. Reports, Analytics & Exports</a></div>
-        <div><a href="#sec-7">7. Invoicing & Social Messaging</a></div>
-        <div><a href="#sec-14">14. Account Management & FAQ</a></div>
+    <div class="step-box">
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-badge">1</div>
+          <div class="step-content"><strong>Open Catalog:</strong> In the reservation form, choose <code>Jewelry</code> or <code>Moissanite</code>, then click <strong>Select catalog item...</strong>.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">2</div>
+          <div class="step-content"><strong>Search:</strong> Type the keyword (e.g. <code>Ring</code> or <code>MOI-01</code>). The list filters in real time.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">3</div>
+          <div class="step-content"><strong>Select:</strong> Click the item or press <kbd>Enter</kbd>. The row auto-populates.</div>
+        </div>
       </div>
     </div>
 
-    <!-- Section 1 -->
-    <h2 id="sec-1">1. System Overview & Architecture</h2>
+    <!-- Section 3: Repeat Customer Auto-Compilation -->
+    <h2 id="sec-autocompile" class="page-break"><span class="section-num">3</span> Automatic Repeat Customer Compilation</h2>
     <p>
-      The <strong>Daily Pearls PH Order Management System (OMS)</strong> is custom-engineered to handle the dynamic sales operations of luxury fine jewelry, cultured pearls, custom mounts, and Moissanite stones.
+      When a customer claims multiple items at different times during a live selling session, the system prevents creating duplicate split orders by automatically merging their claims into a single invoice.
     </p>
-    <div class="grid-2">
-      <div class="card-box">
-        <h4>📦 Multi-Channel Order Flow</h4>
-        <p style="font-size: 13px; margin: 0;">Supports Regular Live Selling Reservations, Custom Client Sourcing (<em>Pasabuy</em>), and Cash-on-Delivery (COD) orders with line-item management.</p>
-      </div>
-      <div class="card-box">
-        <h4>💳 Multi-Payment & Evidence</h4>
-        <p style="font-size: 13px; margin: 0;">Handles partial downpayments, remaining balance tracking, and immutable audit logs with receipt proof attachments.</p>
-      </div>
-      <div class="card-box">
-        <h4>💎 Moissanite Special Inventory</h4>
-        <p style="font-size: 13px; margin: 0;">Dedicated SKU registry, carat/setting specifications, cost accounting, and profit tracking per stone.</p>
-      </div>
-      <div class="card-box">
-        <h4>📊 Employee Commissions & Payouts</h4>
-        <p style="font-size: 13px; margin: 0;">Attribution of assisted sales to team members with real-time settlement tracking (Paid vs. Unpaid).</p>
+
+    <div class="callout callout-pink">
+      <div class="callout-icon">⚡</div>
+      <div class="callout-body">
+        <strong>How Auto-Compilation Works:</strong><br>
+        When you type the buyer's <strong>FB Name</strong> or <strong>Customer Name</strong> in <strong>Add Reservation</strong>, the system checks for any open active reservation (<code>status = "reserved"</code>). If found, it displays an amber notice: <em>"Active reservation found! Existing items loaded into this form."</em>
       </div>
     </div>
 
-    <!-- Section 2 -->
-    <h2 id="sec-2">2. User Roles & Permission Matrix</h2>
-    <p>The system enforces Role-Based Access Control (RBAC) to ensure security across operational workflows:</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Module / Action</th>
-          <th>Owner</th>
-          <th>Admin</th>
-          <th>Staff</th>
-          <th>Viewer</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Dashboard & KPI View</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>👁️ Read-Only</td>
-        </tr>
-        <tr>
-          <td><strong>Create / Edit Reservations</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>✅ Yes</td>
-          <td>🚫 No</td>
-        </tr>
-        <tr>
-          <td><strong>Record Payments & Upload Proof</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>✅ Yes</td>
-          <td>🚫 No</td>
-        </tr>
-        <tr>
-          <td><strong>Ship, Claim, RTO & Reship</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>✅ Yes</td>
-          <td>🚫 No</td>
-        </tr>
-        <tr>
-          <td><strong>Commission Ledger & Payouts</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>🚫 Restricted</td>
-          <td>🚫 Restricted</td>
-        </tr>
-        <tr>
-          <td><strong>Moissanite Inventory & Pricing</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>👁️ View/Link</td>
-          <td>👁️ Read-Only</td>
-        </tr>
-        <tr>
-          <td><strong>Financial Reports & CSV Exports</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>👁️ View</td>
-          <td>🚫 Restricted</td>
-        </tr>
-        <tr>
-          <td><strong>User Accounts & System Settings</strong></td>
-          <td>✅ Full</td>
-          <td>✅ Full</td>
-          <td>🚫 Restricted</td>
-          <td>🚫 Restricted</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- Section 3 -->
-    <h2 id="sec-3">3. Logging In & Navigation</h2>
-    <h3>3.1 Authentication</h3>
-    <ol>
-      <li>Open your web browser and navigate to <code>/login</code>.</li>
-      <li>Enter your registered corporate <strong>Email Address</strong> and <strong>Password</strong>.</li>
-      <li>Click <strong>Sign In</strong> to enter the secure dashboard session.</li>
-    </ol>
-    <div class="callout callout-info">
-      <div>ℹ️</div>
-      <div><strong>Security Note:</strong> Sessions utilize encrypted HTTP-only cookies. When finishing your shift on shared computers, always click <strong>Sign Out</strong> in the user menu.</div>
-    </div>
-
-    <!-- Section 4 -->
-    <h2 id="sec-4">4. Dashboard & Business Analytics</h2>
-    <p>The main dashboard displays high-priority operational metrics:</p>
-    <ul>
-      <li><strong>Total Revenue & Sales:</strong> Aggregated completed collections and total invoiced values.</li>
-      <li><strong>Active Pipeline:</strong> Counters for <em>Reserved</em>, <em>Paid</em>, <em>In Transit (Shipped)</em>, and <em>Claimed</em> packages.</li>
-      <li><strong>RTO Watch:</strong> Direct indicator of failed deliveries requiring immediate customer follow-up.</li>
-    </ul>
-
-    <!-- Section 5 -->
-    <h2 id="sec-5">5. Orders & Reservation Lifecycle</h2>
-    <h3>5.1 Reservation Types</h3>
-    <ul>
-      <li><strong>Regular:</strong> Standard items reserved during live selling streams or direct inquiries.</li>
-      <li><strong>Pasabuy:</strong> Custom-sourced or bespoke jewelry items procured specifically for a customer.</li>
-      <li><strong>Cash on Delivery (COD):</strong> Orders where the full amount or remaining balance is collected by the courier.</li>
-    </ul>
-
-    <h3>5.2 Creating a New Reservation</h3>
-    <ol>
-      <li>Go to <strong>Orders > Reserved</strong> and click <strong>+ Add Reservation</strong>.</li>
-      <li>Input <strong>Customer FB Name</strong>, <strong>Recipient Name</strong>, <strong>Phone Number</strong>, and complete <strong>Shipping Address</strong>.</li>
-      <li>In the <strong>Order Items (Bulk Ordering)</strong> section:
-        <ul>
-          <li>Click <strong>+ Add Item</strong> to append multiple line items.</li>
-          <li>Choose source: <strong>Manual Item</strong> or <strong>Moissanite Catalog</strong>.</li>
-          <li>Set quantity and unit price. Line totals compute automatically.</li>
-        </ul>
-      </li>
-      <li>Set <strong>Discount</strong> (if applicable) and <strong>Shipping Fee</strong>.</li>
-      <li>Enter the initial <strong>Downpayment (DP)</strong> and choose the <strong>Payment Method</strong>.</li>
-      <li>Click <strong>Save Reservation</strong>. A unique invoice number is automatically assigned.</li>
-    </ol>
-
-    <h3>5.3 Lifecycle Flowchart</h3>
-    <div class="flow-chart">
-      <div class="flow-step">1. Reserved</div>
-      <div class="flow-arrow">➔</div>
-      <div class="flow-step">2. Paid / Partial</div>
-      <div class="flow-arrow">➔</div>
-      <div class="flow-step">3. Shipped</div>
-      <div class="flow-arrow">➔</div>
-      <div class="flow-step" style="border-color: #10b981; color: #065f46;">4. Claimed</div>
-    </div>
-    <p style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: -10px;">
-      * If delivery fails during Step 3, order moves to <span class="badge badge-rto">RTO</span> and can be reshipped.
-    </p>
-
-    <h3>5.4 Shipping, Delivery & RTO Operations</h3>
-    <ul>
-      <li><strong>Ship Order:</strong> Open the order details, click <strong>Ship Order</strong>, select courier (e.g., LBC, J&T, Flash, Grab), and enter the tracking number.</li>
-      <li><strong>Mark Claimed:</strong> Once delivery confirmation is received, click <strong>Mark Claimed</strong>.</li>
-      <li><strong>Mark as RTO:</strong> If returned by courier, specify the RTO reason (e.g., Unreachable, Refused Delivery) and notes.</li>
-      <li><strong>Reship:</strong> Under <strong>Orders > RTO</strong>, click <strong>Reship Order</strong> to assign a new tracking number and restart transit.</li>
-    </ul>
-
-    <!-- Section 6 -->
-    <h2 id="sec-6">6. Payment Processing & Evidence</h2>
-    <p>The system supports split payments (initial downpayment followed by balance payments):</p>
-    <ol>
-      <li>Open the target order and click <strong>Record Payment</strong>.</li>
-      <li>Choose kind: <code>Downpayment</code> or <code>Balance</code>.</li>
-      <li>Select the channel: <strong>GCash, Maya, BDO, BPI, UnionBank, COD, Cash, Remittance</strong>.</li>
-      <li>Enter the <strong>Reference Number</strong> and upload the proof of payment receipt image.</li>
-      <li>Click <strong>Save Payment</strong>. The invoice summary and remaining balance update in real time.</li>
-    </ol>
-
-    <!-- Section 7 -->
-    <h2 id="sec-7">7. Invoicing & Social Messaging</h2>
-    <p>Located at <code>/orders/[id]/invoice</code>, the invoice provides both digital presentation and one-click social messaging:</p>
-    <div class="grid-2">
-      <div class="card-box">
-        <h4>🖨️ Professional Printable Invoice</h4>
-        <p style="font-size: 13px; margin: 0;">Formatted with official branding, itemized tables, payment breakdown, and payment receipt thumbnails. Ready to print or export to PDF via <code>Ctrl + P</code>.</p>
-      </div>
-      <div class="card-box">
-        <h4>💬 Social Media Fast Copy</h4>
-        <p style="font-size: 13px; margin: 0;">Click <strong>COPY INVOICE</strong>, <strong>COPY REGULAR</strong>, <strong>COPY PASABUY</strong>, or <strong>COPY COD</strong> to instantly paste pre-formatted order notifications directly to FB Messenger.</p>
+    <div class="step-box">
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-badge">1</div>
+          <div class="step-content"><strong>Type Customer Name:</strong> Start typing <code>Maria S.</code> or <code>Maria Santos</code>.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">2</div>
+          <div class="step-content"><strong>Existing Order Loads:</strong> All previously claimed jewelry items appear automatically in the item table.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">3</div>
+          <div class="step-content"><strong>Add New Items:</strong> Click <strong>+ Add Item</strong> to add the new piece the customer just mined or claimed.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">4</div>
+          <div class="step-content"><strong>Save Consolidated Order:</strong> Click <strong>Save Reservation</strong>. The system updates the original invoice without creating duplicate records.</div>
+        </div>
       </div>
     </div>
 
-    <!-- Section 8 -->
-    <h2 id="sec-8">8. Collections & Cash Reconciliation</h2>
-    <p>
-      Access the <strong>Collections</strong> tab to view a centralized ledger of all funds collected across all channels. Filter by date, payment method, or customer name to conduct fast daily cash counts and bank deposit reconciliations.
-    </p>
+    <!-- Section 4: Adding a Reservation -->
+    <h2 id="sec-neworder"><span class="section-num">4</span> Creating a Reservation (Step-by-Step)</h2>
 
-    <!-- Section 9 -->
-    <h2 id="sec-9">9. Moissanite Jewelry Inventory & Sales</h2>
-    <ul>
-      <li><strong>SKU Catalog (<code>/moissanite/sku</code>):</strong> Manage custom stones, settings (Solitaire, Halo, 6-Prong), carat weight, cost prices, and retail prices.</li>
-      <li><strong>Sold Ledger (<code>/moissanite/sold</code>):</strong> Automatic tracking of sold stones linked directly to customer invoice numbers, showing realized revenue and gross profit margins.</li>
-    </ul>
+    <div class="avoid-break">
+      <div class="step-box">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-badge">1</div>
+            <div class="step-content"><strong>Order Type:</strong> Choose <strong>Regular</strong> (live stream pearls/jewelry), <strong>Pasabuy</strong> (custom mount/sourcing), or <strong>COD</strong>.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">2</div>
+            <div class="step-content"><strong>Customer Details:</strong> Enter Facebook Name, Full Name, Contact Number, and Delivery Address.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">3</div>
+            <div class="step-content"><strong>Line Items:</strong> Select item from catalog or type custom item name, quantity, and unit price.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">4</div>
+            <div class="step-content"><strong>Financials:</strong> Enter any agreed <strong>Discount</strong> and courier <strong>Shipping Fee</strong>.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">5</div>
+            <div class="step-content"><strong>Downpayment (DP):</strong> If the customer deposited an initial advance, enter the DP amount and select the payment channel (GCash, BDO, BPI, Maya, Cash).</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">6</div>
+            <div class="step-content"><strong>Confirm:</strong> Click <strong>Save Reservation</strong>. An invoice number (e.g. <code>2026-100401</code>) is automatically generated.</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- Section 10 -->
-    <h2 id="sec-10">10. Products & Category Management</h2>
-    <p>
-      Maintain your core product catalog (South Sea Pearls, Freshwater Pearls, Akoya, 14k/18k Mounts, Chains, Earrings) under <strong>Products</strong> and <strong>Categories</strong>. Toggle active/inactive states to control catalog availability.
-    </p>
+    <!-- Section 5: Order Lifecycle Pipeline -->
+    <h2 id="sec-pipeline"><span class="section-num">5</span> Order Lifecycle &amp; Status Pipeline</h2>
+    <p>Every order moves systematically through defined fulfillment stages:</p>
 
-    <!-- Section 11 -->
-    <h2 id="sec-11">11. Employee Commission Tracking</h2>
-    <p>
-      Located under <strong>Commission & Assistance</strong> (Admin/Owner only):
-    </p>
-    <ol>
-      <li>Click <strong>+ Add Record</strong> to log a sales assistant's contribution to a closed order.</li>
-      <li>The system tracks total monthly commission by staff member, order sales volume, and settlement status.</li>
-      <li>Use the action menu to mark items as <span class="badge badge-paid">Paid</span> upon salary or commission payout.</li>
-    </ol>
+    <div class="pipeline-flow avoid-break">
+      <div class="flow-node">
+        <span class="badge badge-reserved">Reserved</span>
+        <div class="flow-node-title">1. Held</div>
+        <div class="flow-node-sub">Awaiting balance</div>
+      </div>
+      <div class="flow-sep">➔</div>
+      <div class="flow-node">
+        <span class="badge badge-paid">Paid</span>
+        <div class="flow-node-title">2. Settled</div>
+        <div class="flow-node-sub">Ready to pack</div>
+      </div>
+      <div class="flow-sep">➔</div>
+      <div class="flow-node">
+        <span class="badge badge-shipped">Shipped</span>
+        <div class="flow-node-title">3. In Transit</div>
+        <div class="flow-node-sub">With courier</div>
+      </div>
+      <div class="flow-sep">➔</div>
+      <div class="flow-node">
+        <span class="badge badge-claimed">Claimed</span>
+        <div class="flow-node-title">4. Completed</div>
+        <div class="flow-node-sub">Delivered &amp; received</div>
+      </div>
+    </div>
 
-    <!-- Section 12 -->
-    <h2 id="sec-12">12. Customer Directory</h2>
-    <p>
-      The <strong>Customers</strong> view provides a complete customer database with contact numbers, delivery addresses, Facebook handles, and cumulative lifetime purchase history.
-    </p>
+    <div class="avoid-break">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Where to Find</th>
+            <th>Meaning &amp; Next Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-reserved">Reserved</span></td>
+            <td><code>/orders/reserved</code></td>
+            <td>Item is held for customer. Record downpayment or full balance payment.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-paid">Paid</span></td>
+            <td><code>/orders/paid</code></td>
+            <td>Fully paid. Ready for jewelry pouch packing and dispatch.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-shipped">Shipped</span></td>
+            <td><code>/orders/shipped</code></td>
+            <td>In transit with LBC, J&amp;T, Flash, or Grab. Tracking number assigned.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-claimed">Claimed</span></td>
+            <td><code>/orders/claimed</code></td>
+            <td>Package safely delivered and accepted by customer. Transaction closed.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-rto">RTO</span></td>
+            <td><code>/orders/rto</code></td>
+            <td>Delivery failed (customer unreachable/wrong address). Ready for reshipping.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-cancelled">Cancelled</span></td>
+            <td><code>/orders/cancelled</code></td>
+            <td>Order voided prior to dispatch. Kept in audit history.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- Section 13 -->
-    <h2 id="sec-13">13. Reports, Analytics & Exports</h2>
-    <p>
-      Generate high-level and detailed monthly performance summaries under <strong>Reports</strong>:
-    </p>
-    <ul>
-      <li>Monthly gross and net sales, shipping fees collected, discounts applied.</li>
-      <li>Order conversion rates, RTO percentages, and claim rates.</li>
-      <li><strong>CSV / Excel Export:</strong> Click <strong>Export CSV</strong> on any data table across Orders, Collections, or Commissions for external accounting spreadsheets.</li>
-    </ul>
+    <!-- Section 6: Payment Processing -->
+    <h2 id="sec-payments" class="page-break"><span class="section-num">6</span> Payment Processing &amp; Proof Receipts</h2>
+    <p>The system supports split payments, multiple payment methods, and receipt screenshots:</p>
 
-    <!-- Section 14 -->
-    <h2 id="sec-14">14. Account Management & FAQ</h2>
-    <h3>14.1 Managing Staff Accounts</h3>
-    <p>
-      Administrators can create new accounts, assign roles (<em>Staff, Admin, Viewer</em>), or deactivate departed personnel under <strong>Accounts</strong>.
-    </p>
+    <div class="step-box avoid-break">
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-badge">1</div>
+          <div class="step-content"><strong>Open Order:</strong> Click on the order in any view and select <strong>Record Payment</strong>.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">2</div>
+          <div class="step-content"><strong>Select Kind:</strong> Choose <code>Downpayment</code> (initial deposit) or <code>Balance</code> (settling balance).</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">3</div>
+          <div class="step-content"><strong>Method &amp; Ref:</strong> Select GCash, Maya, BDO, BPI, UnionBank, Cash, or COD, and input the transaction reference number.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">4</div>
+          <div class="step-content"><strong>Upload Receipt:</strong> Attach the screenshot image (<code>.png</code>, <code>.jpg</code>, <code>.pdf</code>). Receipts are securely stored and viewable anytime in high resolution.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-badge">5</div>
+          <div class="step-content"><strong>Save:</strong> The remaining balance and order status update instantly.</div>
+        </div>
+      </div>
+    </div>
 
-    <h3>14.2 Frequently Asked Questions (FAQ)</h3>
-    <div style="margin-top: 15px;">
-      <p><strong>Q: How do I handle a customer who paid via GCash first and will pay the balance in Cash?</strong><br>
-      A: Enter the initial GCash payment as Downpayment. When the remaining amount is collected upon delivery, open the order and click <em>Record Payment</em> with Cash as the method.</p>
+    <!-- Section 7: Shipping & RTO -->
+    <h2 id="sec-shipping"><span class="section-num">7</span> Shipping, Claiming &amp; Handling Returns (RTO)</h2>
 
-      <p><strong>Q: Can I edit an order after saving?</strong><br>
-      A: Yes, click the Edit button in the reservation view. Line items and shipping fees can be updated anytime before dispatch.</p>
+    <div class="recipe-card">
+      <div class="recipe-title">📦 How to Ship an Order</div>
+      <div class="recipe-desc">Open the order, click <strong>Ship Order</strong>, select courier (LBC, J&amp;T, Flash Express, Grab/Lalamove), and type the Tracking Number. Status moves to <strong>Shipped</strong>.</div>
+    </div>
 
-      <p><strong>Q: How do I print the invoice as a PDF file?</strong><br>
-      A: Navigate to the order invoice page, click <em>Print Invoice</em> (or press <code>Ctrl+P</code> on your keyboard), and select <em>Save as PDF</em> as the destination printer.</p>
+    <div class="recipe-card">
+      <div class="recipe-title">✅ How to Mark as Claimed</div>
+      <div class="recipe-desc">When courier status confirms package delivery, open <strong>Orders &gt; Shipped</strong> and click <strong>Mark Claimed</strong>.</div>
+    </div>
+
+    <div class="recipe-card">
+      <div class="recipe-title">🔄 How to Handle Return to Origin (RTO) &amp; Reship</div>
+      <div class="recipe-desc">If delivery fails, click <strong>Mark as RTO</strong> and select the reason. To reship after coordinating with the customer, open <strong>Orders &gt; RTO</strong> and click <strong>Reship Order</strong> with a new tracking code.</div>
+    </div>
+
+    <!-- Section 8: Invoices & Social Templates -->
+    <h2 id="sec-invoices"><span class="section-num">8</span> Digital Invoices &amp; 1-Click Social Templates</h2>
+    <p>Located at <code>/orders/[id]/invoice</code> for every transaction:</p>
+
+    <div class="feature-grid avoid-break">
+      <div class="feature-card">
+        <div class="feature-icon">🖨️</div>
+        <div class="feature-title">Printable Invoice</div>
+        <p class="feature-desc">Official Daily Pearls PH branding, itemized table, payment history, and receipt thumbnails. Press <kbd>Ctrl + P</kbd> to print.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <div class="feature-title">1-Click Message Copy</div>
+        <p class="feature-desc">Click <strong>COPY INVOICE</strong>, <strong>COPY REGULAR</strong>, <strong>COPY PASABUY</strong>, or <strong>COPY COD</strong> to copy formatted text ready for Messenger.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <div class="feature-title">Automated Bank Info</div>
+        <p class="feature-desc">Payment templates automatically include official GCash, Maya, and BDO/BPI account details.</p>
+      </div>
+    </div>
+
+    <!-- Section 9: Moissanite -->
+    <h2 id="sec-moissanite" class="page-break"><span class="section-num">9</span> Moissanite Jewelry Inventory &amp; Sales</h2>
+    <div class="avoid-break">
+      <ul>
+        <li><strong>SKU Catalog (<code>/moissanite/sku</code>):</strong> Manage certified Moissanite gemstone cuts, settings (Solitaire, Halo, 6-Prong, Pavé), carat sizes, cost prices, and retail prices.</li>
+        <li><strong>Sold Records (<code>/moissanite/sold</code>):</strong> Tracks sold luxury stones, invoice numbers, sale dates, and realized profit margins.</li>
+      </ul>
+    </div>
+
+    <!-- Section 10: Commissions -->
+    <h2 id="sec-commission"><span class="section-num">10</span> Employee Commission Tracking (Owner &amp; Developer Only)</h2>
+    <div class="avoid-break">
+      <p>Manage sales staff assistance and commission disbursements at <code>/commission</code>:</p>
+      <div class="step-box">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-badge">1</div>
+            <div class="step-content"><strong>Add Record:</strong> Click <strong>+ Add Record</strong>, select the related order or enter live selling assistance details.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">2</div>
+            <div class="step-content"><strong>Assign Staff:</strong> Select employee name and enter the Commission Amount (PHP).</div>
+          </div>
+          <div class="step-item">
+            <div class="step-badge">3</div>
+            <div class="step-content"><strong>Settle Payout:</strong> Filter by <code>Unpaid</code> to view pending amounts. Click <strong>Mark as Paid</strong> upon payout.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 11: Reports & Export -->
+    <h2 id="sec-reports"><span class="section-num">11</span> Financial Analytics &amp; CSV Data Export</h2>
+    <div class="avoid-break">
+      <p>Located at <code>/reports</code> (restricted to Developer and Owner accounts):</p>
+      <ul>
+        <li><strong>Monthly Revenue:</strong> Real-time charts of Gross Sales, Discounts Granted, Shipping Collected, and Net Income.</li>
+        <li><strong>Fulfillment Health:</strong> RTO percentages, delivery success rates, and average order value.</li>
+        <li><strong>1-Click CSV Export:</strong> Click <strong>Export to CSV</strong> on any table (Orders, Collections, Commissions) to open directly in Microsoft Excel or Google Sheets.</li>
+      </ul>
+    </div>
+
+    <!-- Section 12: FAQ -->
+    <h2 id="sec-faq"><span class="section-num">12</span> Frequently Asked Questions (FAQ)</h2>
+
+    <div class="avoid-break">
+      <div class="recipe-card">
+        <div class="recipe-title">Q: How do I handle a customer who claims items across different live stream days?</div>
+        <div class="recipe-desc"><strong>A:</strong> As long as their reservation is in <strong>Reserved</strong> status, typing their name in Add Reservation will load their open order. You can add the new items directly to save shipping and merge their invoice.</div>
+      </div>
+
+      <div class="recipe-card">
+        <div class="recipe-title">Q: Can I record multiple payments for the same order?</div>
+        <div class="recipe-desc"><strong>A:</strong> Yes. Use <strong>Record Payment</strong> as many times as needed (e.g. ₱500 GCash deposit + ₱2,500 BDO balance). Each payment is logged with its own receipt screenshot.</div>
+      </div>
+
+      <div class="recipe-card">
+        <div class="recipe-title">Q: Why can't staff or admin accounts see the Commission or Reports pages?</div>
+        <div class="recipe-desc"><strong>A:</strong> By design, financial analytics and employee commission data are restricted exclusively to <strong>Developer</strong> and <strong>Owner</strong> roles to maintain business and financial confidentiality.</div>
+      </div>
     </div>
 
     <!-- Footer -->
-    <div class="doc-footer">
-      <p><strong>Daily Pearls PH Order Management System</strong> — Internal Operations & Training Document</p>
-      <p>© 2026 Daily Pearls PH. All rights reserved. Generated on September 20, 2026.</p>
+    <div style="margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--slate-200); text-align: center; font-size: 11.5px; color: var(--slate-500);">
+      Daily Pearls PH Order Management System • Confidential &amp; Proprietary • Operations Manual v2.5
     </div>
+
   </div>
 </body>
 </html>

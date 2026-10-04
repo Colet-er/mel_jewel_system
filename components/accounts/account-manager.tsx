@@ -314,7 +314,8 @@ export function AccountManager({
                         className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         <option value="owner">Owner (Full Business Control)</option>
-                        <option value="admin">Admin (System Administration)</option>
+                        <option value="developer">Developer (Full Access)</option>
+                        <option value="admin">Admin (Operations & Management - No Financials/Commissions)</option>
                         <option value="staff">Staff (Orders & Inventory)</option>
                         <option value="viewer">Viewer (Read-Only)</option>
                       </select>
@@ -939,7 +940,8 @@ function EditAccountModal({
               className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="owner">Owner (Full Business Control)</option>
-              <option value="admin">Admin (System Administration)</option>
+              <option value="developer">Developer (Full Access)</option>
+              <option value="admin">Admin (Operations & Management - No Financials/Commissions)</option>
               <option value="staff">Staff (Orders & Inventory)</option>
               <option value="viewer">Viewer (Read-Only)</option>
             </select>

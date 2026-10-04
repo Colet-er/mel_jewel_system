@@ -9,7 +9,6 @@ const PROTECTED_PREFIXES = [
   "/products",
   "/categories",
   "/reports",
-  "/settings",
   "/accounts",
   "/commission",
   "/collections",

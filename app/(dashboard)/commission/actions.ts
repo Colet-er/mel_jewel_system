@@ -38,8 +38,8 @@ export async function createCommissionRecord(
   }
 
   const { user, profile } = await getCurrentProfile();
-  if (profile?.role !== "owner" && !isDeveloperEmail(user.email)) {
-    return { success: false, error: "Only business owners can create commission records." };
+  if (profile?.role !== "owner" && profile?.role !== "developer" && !isDeveloperEmail(user.email)) {
+    return { success: false, error: "Only business owners or developers can create commission records." };
   }
 
   const supabase = await createClient();
@@ -84,8 +84,8 @@ export async function updateCommissionStatus(
   }
 
   const { user, profile } = await getCurrentProfile();
-  if (profile?.role !== "owner" && !isDeveloperEmail(user.email)) {
-    return { success: false, error: "Only business owners can update commission status." };
+  if (profile?.role !== "owner" && profile?.role !== "developer" && !isDeveloperEmail(user.email)) {
+    return { success: false, error: "Only business owners or developers can update commission status." };
   }
 
   const supabase = await createClient();
@@ -111,8 +111,8 @@ export async function deleteCommissionRecord(
   }
 
   const { user, profile } = await getCurrentProfile();
-  if (profile?.role !== "owner" && !isDeveloperEmail(user.email)) {
-    return { success: false, error: "Only business owners can delete commission records." };
+  if (profile?.role !== "owner" && profile?.role !== "developer" && !isDeveloperEmail(user.email)) {
+    return { success: false, error: "Only business owners or developers can delete commission records." };
   }
 
   const supabase = await createClient();

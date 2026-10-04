@@ -40,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Other",
     items: [
       { label: "Commission", href: "/commission", icon: "credit-card" },
+      { label: "Financial Reports", href: "/reports", icon: "bar-chart-3" },
     ],
   },
   {

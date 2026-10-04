@@ -2,7 +2,9 @@ import type { UserRole } from "@/types";
 
 /**
  * Central permission matrix.
- * The database enforces the same rules via RLS; this matrix drives UI affordances.
+ * - developer & owner: Full access to all modules, including commissions and financial reports.
+ * - admin & staff: Operational access (orders, products, customers), but NO access to commissions or financial reports.
+ * - viewer: Read-only access to products.
  */
 export type Permission =
   | "orders:create"
@@ -15,10 +17,22 @@ export type Permission =
   | "reports:view"
   | "reports:export"
   | "users:manage"
-  | "settings:manage"
   | "commissions:manage";
 
 const PERMISSIONS: Record<UserRole, readonly Permission[]> = {
+  developer: [
+    "orders:create",
+    "orders:edit",
+    "orders:cancel",
+    "payments:record",
+    "customers:manage",
+    "products:view",
+    "products:manage",
+    "reports:view",
+    "reports:export",
+    "users:manage",
+    "commissions:manage",
+  ],
   owner: [
     "orders:create",
     "orders:edit",
@@ -30,7 +44,6 @@ const PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "reports:view",
     "reports:export",
     "users:manage",
-    "settings:manage",
     "commissions:manage",
   ],
   admin: [
@@ -41,10 +54,6 @@ const PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "customers:manage",
     "products:view",
     "products:manage",
-    "reports:view",
-    "reports:export",
-    "users:manage",
-    "settings:manage",
   ],
   staff: [
     "orders:create",
@@ -52,9 +61,8 @@ const PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "payments:record",
     "customers:manage",
     "products:view",
-    "reports:view",
   ],
-  viewer: ["products:view", "reports:view"],
+  viewer: ["products:view"],
 };
 
 export function hasPermission(
@@ -62,5 +70,5 @@ export function hasPermission(
   permission: Permission
 ): boolean {
   if (!role) return false;
-  return PERMISSIONS[role].includes(permission);
+  return PERMISSIONS[role]?.includes(permission) ?? false;
 }

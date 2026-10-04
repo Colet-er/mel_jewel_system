@@ -45,6 +45,7 @@ const ICONS: Record<string, LucideIcon> = {
   "shopping-bag": ShoppingBag,
   "credit-card": CreditCard,
   "dollar-sign": DollarSign,
+  "bar-chart-3": FileText,
 };
 
 export function NavIcon({ name, className }: { name: string; className?: string }) {

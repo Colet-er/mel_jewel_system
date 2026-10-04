@@ -1,5 +1,8 @@
-﻿import Link from "next/link";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { BarChart3, FileText } from "lucide-react";
+import { getCurrentProfile } from "@/lib/supabase/auth";
+import { isDeveloperEmail } from "@/lib/auth/developer";
 import { computeTotals, describeDbError, fetchOrders } from "@/lib/supabase/queries";
 import { formatCurrency, monthName } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
@@ -10,6 +13,14 @@ import { StatCard } from "@/components/ui/stat-card";
 export const metadata = { title: "Reports" };
 
 export default async function ReportsPage() {
+  const { user, profile } = await getCurrentProfile();
+  const isDev = isDeveloperEmail(user?.email);
+  const isOwnerOrDev = profile?.role === "owner" || profile?.role === "developer" || isDev;
+
+  if (!isOwnerOrDev) {
+    notFound();
+  }
+
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -28,7 +39,7 @@ export default async function ReportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="Business performance at a glance."
+        description="Business performance and financial reports."
       />
 
       {dbError ? (

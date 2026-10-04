@@ -15,8 +15,9 @@ export const metadata = { title: "Developer Portal - Account Management" };
 
 export default async function AccountsPage() {
   const { user, profile } = await getCurrentProfile();
-  const isDev = isDeveloperEmail(user.email);
-  if (!isDev) {
+  const isDev = isDeveloperEmail(user?.email) || profile?.role === "developer";
+  const isOwner = profile?.role === "owner";
+  if (!isDev && !isOwner) {
     notFound();
   }
 

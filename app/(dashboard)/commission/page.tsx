@@ -187,7 +187,7 @@ export default async function CommissionPage({
   const { user, profile } = await getCurrentProfile();
   const isDev = isDeveloperEmail(user.email);
 
-  if (profile?.role !== "owner" && !isDev) {
+  if (profile?.role !== "owner" && profile?.role !== "developer" && !isDev) {
     notFound();
   }
 

@@ -34,10 +34,12 @@ export function SidebarNav({ onNavigate, role, developerAccess, collapsed }: Sid
       )}
     >
       {NAV_GROUPS.map((group, groupIndex) => {
+        const isOwnerOrDev = role === "owner" || role === "developer" || developerAccess;
         const visibleItems = group.items.filter(
           (item) =>
-            (item.href !== "/commission" || role === "owner" || developerAccess) &&
-            (item.href !== "/accounts" || developerAccess)
+            (item.href !== "/commission" || isOwnerOrDev) &&
+            (item.href !== "/reports" || isOwnerOrDev) &&
+            (item.href !== "/accounts" || isOwnerOrDev)
         );
 
         if (visibleItems.length === 0) {
