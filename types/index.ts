@@ -113,6 +113,7 @@ export interface ReservationInput {
   downpayment: number;
   downpaymentMethod: string;
   type: ReservationType;
+  compileTargetOrderId?: string;
 }
 
 export interface Order {

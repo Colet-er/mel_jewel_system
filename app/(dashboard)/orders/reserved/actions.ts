@@ -269,6 +269,10 @@ function revalidateReservationPaths() {
 export async function createReservation(
   input: ReservationInput
 ): Promise<ReservationFormResult> {
+  if (input.compileTargetOrderId) {
+    return updateReservation(input.compileTargetOrderId, input);
+  }
+
   const validationError = validateReservationInput(input);
   if (validationError) return { ok: false, message: validationError };
   if (input.downpayment > 0 && !input.downpaymentMethod) {

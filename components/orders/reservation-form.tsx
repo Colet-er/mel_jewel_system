@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, X } from "lucide-react";
+import { Check, History, Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
   createReservation,
   updateReservation,
@@ -14,6 +14,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { formatCurrency } from "@/lib/utils/format";
 import { PAYMENT_METHODS } from "@/lib/utils/payment-validation";
 import { createClient } from "@/lib/supabase/client";
+import { SearchableItemSelect } from "./searchable-item-select";
 
 export type ReservationTypeOption = "Regular" | "Pasabuy" | "COD";
 export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
@@ -32,6 +33,7 @@ export interface FormLineItem {
   category: string;
   quantity: string;
   price: string;
+  isExistingFromCompiledOrder?: boolean;
 }
 
 export interface ReservationFormValues {
@@ -54,6 +56,23 @@ export interface ReservationFormValues {
   price?: string;
 }
 
+interface ActiveCustomerReservation {
+  id: string;
+  orderNumber: string;
+  customerId?: string;
+  customerName: string;
+  fbName: string | null;
+  phone: string | null;
+  address: string | null;
+  discount: number;
+  shippingFee: number;
+  downpayment: number;
+  downpaymentMethod: string | null;
+  type: ReservationTypeOption;
+  createdAt: string;
+  items: FormLineItem[];
+}
+
 function createEmptyItem(idPrefix: string = "item"): FormLineItem {
   return {
     id: `${idPrefix}-${Math.random().toString(36).substring(2, 9)}`,
@@ -65,6 +84,7 @@ function createEmptyItem(idPrefix: string = "item"): FormLineItem {
     category: "",
     quantity: "1",
     price: "",
+    isExistingFromCompiledOrder: false,
   };
 }
 
@@ -85,6 +105,7 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
       category: item.category || "",
       quantity: String(item.quantity || "1"),
       price: String(item.price ?? ""),
+      isExistingFromCompiledOrder: item.isExistingFromCompiledOrder ?? false,
     }));
   } else if (initial?.itemName || initial?.price) {
     initialItems = [
@@ -98,6 +119,7 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
         category: initial.category || "",
         quantity: String(initial.quantity || "1"),
         price: String(initial.price || ""),
+        isExistingFromCompiledOrder: false,
       },
     ];
   } else {
@@ -190,6 +212,9 @@ export function ReservationFormModal({
   const [error, setError] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<MoissaniteInventoryOption[]>([]);
   const [productItems, setProductItems] = useState<ProductCatalogOption[]>([]);
+  const [activeReservations, setActiveReservations] = useState<ActiveCustomerReservation[]>([]);
+  const [compiledOrderId, setCompiledOrderId] = useState<string | null>(null);
+  const [ignoredMatchId, setIgnoredMatchId] = useState<string | null>(null);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -205,6 +230,7 @@ export function ReservationFormModal({
   useEffect(() => {
     let active = true;
     const supabase = createClient();
+
     void Promise.all([
       supabase
         .from("moissanite_skus")
@@ -217,9 +243,48 @@ export function ReservationFormModal({
         .eq("is_active", true)
         .eq("is_archived", false)
         .order("name"),
-    ]).then(([moissaniteResult, productsResult]) => {
+      supabase
+        .from("orders")
+        .select(`
+          id,
+          order_number,
+          status,
+          total_amount,
+          discount,
+          shipping_fee,
+          reservation_type,
+          created_at,
+          customer:customers (
+            id,
+            name,
+            fb_name,
+            phone,
+            address
+          ),
+          order_items (
+            id,
+            quantity,
+            unit_price,
+            product:products (
+              id,
+              name,
+              sku,
+              category:categories ( name )
+            )
+          ),
+          payments:order_payments (
+            amount,
+            kind,
+            payment_method
+          )
+        `)
+        .eq("status", "reserved")
+        .is("archived_at", null)
+        .order("created_at", { ascending: false }),
+    ]).then(([moissaniteResult, productsResult, activeOrdersResult]) => {
       if (!active) return;
       setInventoryLoading(false);
+
       if (moissaniteResult.error) {
         setInventoryLoadError("Could not load the Moissanite catalog. You can still enter item details manually.");
       } else if (moissaniteResult.data) {
@@ -291,11 +356,170 @@ export function ReservationFormModal({
           return updated ? { ...current, items: nextItems } : current;
         });
       }
+
+      if (!activeOrdersResult.error && activeOrdersResult.data) {
+        const parsedActive: ActiveCustomerReservation[] = activeOrdersResult.data.map((order) => {
+          const cust = Array.isArray(order.customer) ? order.customer[0] : order.customer;
+          const orderItems = Array.isArray(order.order_items) ? order.order_items : [];
+          const payments = Array.isArray(order.payments) ? order.payments : [];
+
+          const dpPayments = payments.filter((p) => p.kind === "downpayment");
+          const totalDp = dpPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const dpMethod = dpPayments[0]?.payment_method || null;
+
+          let resType: ReservationTypeOption = "Regular";
+          if (order.reservation_type?.toLowerCase() === "pasabuy") resType = "Pasabuy";
+          if (order.reservation_type?.toLowerCase() === "cod") resType = "COD";
+
+          const mappedItems: FormLineItem[] = orderItems.map((oi, idx) => {
+            const prod = Array.isArray(oi.product) ? oi.product[0] : oi.product;
+            const rawCat = prod?.category as { name?: string } | { name?: string }[] | null | undefined;
+            const cat = Array.isArray(rawCat) ? rawCat[0]?.name ?? "" : rawCat?.name ?? "";
+            const isMoiss = Boolean(
+              prod?.sku?.toUpperCase().startsWith("MOISS") ||
+              cat?.toLowerCase() === "moissanite" ||
+              prod?.name?.toLowerCase().includes("moissanite")
+            );
+
+            return {
+              id: oi.id || `prev-item-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+              itemSource: isMoiss ? "moissanite" : "product",
+              selectedInventoryId: isMoiss ? (prod?.id || "") : "",
+              selectedProductId: isMoiss ? "" : (prod?.id || ""),
+              itemCode: prod?.sku || "",
+              itemName: prod?.name || "Reserved Item",
+              category: cat || (isMoiss ? "Moissanite" : "Jewelry"),
+              quantity: String(oi.quantity || 1),
+              price: String(oi.unit_price || 0),
+              isExistingFromCompiledOrder: true,
+            };
+          });
+
+          return {
+            id: order.id,
+            orderNumber: order.order_number,
+            customerId: cust?.id,
+            customerName: cust?.name || "",
+            fbName: cust?.fb_name || null,
+            phone: cust?.phone || null,
+            address: cust?.address || null,
+            discount: Number(order.discount || 0),
+            shippingFee: Number(order.shipping_fee || 0),
+            downpayment: totalDp,
+            downpaymentMethod: dpMethod,
+            type: resType,
+            createdAt: order.created_at,
+            items: mappedItems,
+          };
+        });
+
+        setActiveReservations(parsedActive);
+      }
     });
+
     return () => {
       active = false;
     };
   }, []);
+
+  // Detect matching active reservation for the entered customer/FB name in create mode
+  const trimmedFb = values.fbName.trim().toLowerCase();
+  const trimmedCust = values.customerName.trim().toLowerCase();
+
+  const matchingActiveReservation = useMemo(() => {
+    if (mode !== "create") return null;
+    if (!trimmedFb && !trimmedCust) return null;
+
+    return (
+      activeReservations.find((res) => {
+        const fbMatch = Boolean(trimmedFb && res.fbName && res.fbName.toLowerCase() === trimmedFb);
+        const custMatch = Boolean(trimmedCust && res.customerName && res.customerName.toLowerCase() === trimmedCust);
+        return fbMatch || custMatch;
+      }) || null
+    );
+  }, [mode, trimmedFb, trimmedCust, activeReservations]);
+
+  function handleCompileWithExisting(res: ActiveCustomerReservation) {
+    setCompiledOrderId(res.id);
+    setIgnoredMatchId(null);
+
+    setValues((current) => {
+      // Retain any new items the user started filling that have content
+      const userEnteredItems = current.items.filter(
+        (it) =>
+          !it.isExistingFromCompiledOrder &&
+          (it.itemName.trim() || it.itemCode.trim() || parseNumber(it.price) > 0)
+      );
+
+      const newItemsToAdd =
+        userEnteredItems.length > 0
+          ? userEnteredItems
+          : [createEmptyItem("new-line")];
+
+      return {
+        ...current,
+        invoiceNumber: res.orderNumber,
+        fbName: res.fbName || current.fbName,
+        customerName: res.customerName || current.customerName,
+        phone: res.phone || current.phone,
+        customerAddress: res.address || current.customerAddress,
+        discount: String(res.discount),
+        shippingFee: String(res.shippingFee),
+        downpayment: String(res.downpayment),
+        downpaymentMethod: res.downpaymentMethod || current.downpaymentMethod,
+        type: res.type || current.type,
+        items: [...res.items, ...newItemsToAdd],
+      };
+    });
+    setError(null);
+  }
+
+  // AUTOMATIC COMPILATION: Whenever a matching active reservation is identified, automatically compile it!
+  useEffect(() => {
+    if (
+      mode === "create" &&
+      matchingActiveReservation &&
+      compiledOrderId !== matchingActiveReservation.id &&
+      ignoredMatchId !== matchingActiveReservation.id
+    ) {
+      handleCompileWithExisting(matchingActiveReservation);
+    }
+  }, [mode, matchingActiveReservation, compiledOrderId, ignoredMatchId]);
+
+  // Reset compilation if customer name is changed away from matching reservation
+  useEffect(() => {
+    if (mode === "create" && compiledOrderId && !matchingActiveReservation) {
+      setCompiledOrderId(null);
+      setValues((current) => {
+        const userEnteredItems = current.items.filter((it) => !it.isExistingFromCompiledOrder);
+        return {
+          ...current,
+          invoiceNumber: "",
+          items: userEnteredItems.length > 0 ? userEnteredItems : [createEmptyItem("fresh")],
+        };
+      });
+    }
+  }, [mode, compiledOrderId, matchingActiveReservation]);
+
+  function handleUncompileReservation() {
+    if (matchingActiveReservation) {
+      setIgnoredMatchId(matchingActiveReservation.id);
+    }
+    setCompiledOrderId(null);
+
+    setValues((current) => {
+      const remainingNewItems = current.items.filter((it) => !it.isExistingFromCompiledOrder);
+      return {
+        ...current,
+        invoiceNumber: "",
+        items:
+          remainingNewItems.length > 0
+            ? remainingNewItems
+            : [createEmptyItem("fresh")],
+      };
+    });
+    setError(null);
+  }
 
   function handleBackdropClick(event: React.MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) {
@@ -450,6 +674,7 @@ export function ReservationFormModal({
       downpayment: parseNumber(values.downpayment || "0") || 0,
       downpaymentMethod: values.downpaymentMethod,
       type: values.type.toLowerCase() as ReservationInput["type"],
+      compileTargetOrderId: compiledOrderId || undefined,
     };
   }
 
@@ -475,11 +700,13 @@ export function ReservationFormModal({
       }
     }
 
-    if (mode === "edit") {
+    if (mode === "edit" || compiledOrderId) {
       const ok = await confirm({
-        title: "Save Reservation Changes",
-        description: "Are you sure you want to save the changes to this reservation?",
-        confirmLabel: "Save Changes",
+        title: compiledOrderId ? "Compile with Existing Reservation" : "Save Reservation Changes",
+        description: compiledOrderId
+          ? `Compile these ${values.items.length} items into active Order #${values.invoiceNumber}? This preserves previous records without separating.`
+          : "Are you sure you want to save the changes to this reservation?",
+        confirmLabel: compiledOrderId ? "Compile & Save" : "Save Changes",
         variant: "primary",
       });
       if (!ok) return;
@@ -488,16 +715,22 @@ export function ReservationFormModal({
     const input = buildInput();
 
     startTransition(async () => {
-      const result =
-        mode === "create"
-          ? await createReservation(input)
-          : await updateReservation(orderId ?? "", input);
+      let result;
+      if (compiledOrderId) {
+        result = await updateReservation(compiledOrderId, input);
+      } else if (mode === "create") {
+        result = await createReservation(input);
+      } else {
+        result = await updateReservation(orderId ?? "", input);
+      }
 
       if (result.ok) {
-        const successMsg =
-          mode === "create"
-            ? "Reservation successfully created."
-            : "Reservation changes successfully saved.";
+        let successMsg = "Reservation successfully created.";
+        if (compiledOrderId) {
+          successMsg = `Reservation successfully compiled into Order #${values.invoiceNumber}.`;
+        } else if (mode === "edit") {
+          successMsg = "Reservation changes successfully saved.";
+        }
         onSuccess?.(successMsg);
         router.refresh();
         onClose();
@@ -510,22 +743,36 @@ export function ReservationFormModal({
   const originalDownpayment = parseNumber(initial?.downpayment || "0") || 0;
   const editedDownpayment = parseNumber(values.downpayment || "0") || 0;
   const needsDownpaymentMethod =
-    (mode === "create" && editedDownpayment > 0) ||
-    (mode === "edit" && editedDownpayment > originalDownpayment);
+    (mode === "create" && !compiledOrderId && editedDownpayment > 0) ||
+    (mode === "edit" && editedDownpayment > originalDownpayment) ||
+    (Boolean(compiledOrderId) && editedDownpayment > originalDownpayment);
+
+  const isCompiled = Boolean(compiledOrderId);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 py-10"
       role="dialog"
       aria-modal="true"
-      aria-label={mode === "create" ? "Add Reservation" : "Edit Reservation"}
+      aria-label={mode === "create" ? (isCompiled ? "Compile Reservation" : "Add Reservation") : "Edit Reservation"}
       onClick={handleBackdropClick}
     >
       <div className="w-full max-w-4xl rounded-xl border border-white/10 bg-background shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
-          <h2 className="text-base font-semibold text-foreground">
-            {mode === "create" ? "Add Reservation" : "Edit Reservation"}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold text-foreground">
+              {mode === "create"
+                ? isCompiled
+                  ? "Compile Reservation Record"
+                  : "Add Reservation"
+                : "Edit Reservation"}
+            </h2>
+            {isCompiled ? (
+              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                ⚡ Auto-Compiling with Order #{values.invoiceNumber}
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -537,6 +784,47 @@ export function ReservationFormModal({
         </div>
 
         <form noValidate onSubmit={handleSubmit} className="space-y-6 px-5 py-5">
+          {/* Active Reservation Detection / Auto-Compilation Banner */}
+          {mode === "create" && isCompiled && matchingActiveReservation ? (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-4 transition-all duration-200">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-emerald-500/20 p-2 shrink-0 text-emerald-400 mt-0.5">
+                    <Check className="h-4 w-4" aria-hidden />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                        ⚡ Automatically Compiled with Active Reservation
+                      </p>
+                      <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                        Order #{matchingActiveReservation.orderNumber} · {matchingActiveReservation.items.length} previous item
+                        {matchingActiveReservation.items.length === 1 ? "" : "s"} on file
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-foreground/90">
+                      Previous items and customer details for <strong>{matchingActiveReservation.customerName}</strong>{" "}
+                      {matchingActiveReservation.fbName ? `(@${matchingActiveReservation.fbName})` : ""} were automatically loaded.
+                      Any new items will be saved directly into this reservation.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleUncompileReservation}
+                    className="text-xs h-8 text-muted hover:text-foreground"
+                  >
+                    Separate as New Order Instead
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <h3 className={sectionHeadingClass}>Basic Information</h3>
 
@@ -544,11 +832,23 @@ export function ReservationFormModal({
               <Label htmlFor={`${baseId}-fb-name`}>FB Name</Label>
               <Input
                 id={`${baseId}-fb-name`}
+                list={`${baseId}-active-fb-list`}
                 value={values.fbName}
                 onChange={(event) => update("fbName", event.target.value)}
                 placeholder="e.g. Maria S."
                 autoComplete="off"
               />
+              <datalist id={`${baseId}-active-fb-list`}>
+                {activeReservations
+                  .filter((r) => r.fbName)
+                  .map((r) => (
+                    <option
+                      key={r.id}
+                      value={r.fbName!}
+                      label={`Order #${r.orderNumber} · ${r.customerName} (${r.items.length} items)`}
+                    />
+                  ))}
+              </datalist>
             </div>
 
             <div>
@@ -556,13 +856,16 @@ export function ReservationFormModal({
               <Input
                 id={`${baseId}-invoice-number`}
                 value={
-                  mode === "create"
+                  isCompiled
+                    ? `${values.invoiceNumber} (Compiling into existing record)`
+                    : mode === "create"
                     ? "Auto-generated upon save"
                     : values.invoiceNumber
                 }
                 readOnly
                 disabled
                 aria-readonly="true"
+                className={isCompiled ? "font-semibold text-pink-light" : undefined}
               />
             </div>
 
@@ -572,11 +875,21 @@ export function ReservationFormModal({
               <Label htmlFor={`${baseId}-customer-name`}>Customer Name</Label>
               <Input
                 id={`${baseId}-customer-name`}
+                list={`${baseId}-active-cust-list`}
                 value={values.customerName}
                 onChange={(event) => update("customerName", event.target.value)}
                 placeholder="e.g. Maria Santos"
                 autoComplete="off"
               />
+              <datalist id={`${baseId}-active-cust-list`}>
+                {activeReservations.map((r) => (
+                  <option
+                    key={r.id}
+                    value={r.customerName}
+                    label={`Order #${r.orderNumber} · ${r.fbName ? `@${r.fbName} · ` : ""}(${r.items.length} items)`}
+                  />
+                ))}
+              </datalist>
             </div>
 
             <div>
@@ -608,8 +921,13 @@ export function ReservationFormModal({
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-pink-light">
-                  Order Items
+                  Order Items ({values.items.length})
                 </h3>
+                {isCompiled ? (
+                  <span className="text-[11px] text-muted">
+                    · Includes previously reserved items + new items
+                  </span>
+                ) : null}
               </div>
               <Button
                 type="button"
@@ -633,12 +951,30 @@ export function ReservationFormModal({
                 return (
                   <div
                     key={item.id}
-                    className="relative rounded-xl border border-white/10 bg-white/[0.025] p-4 transition-all hover:border-white/20"
+                    className={`relative rounded-xl border p-4 transition-all duration-200 ${
+                      item.isExistingFromCompiledOrder
+                        ? "border-white/15 bg-white/[0.035]"
+                        : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-3 border-b border-white/5 pb-2">
-                      <span className="text-xs font-bold text-pink-light">
-                        Item #{index + 1}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-pink-light">
+                          Item #{index + 1}
+                        </span>
+                        {item.isExistingFromCompiledOrder ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+                            <History className="h-3 w-3 text-pink-light/80" />
+                            Previously Reserved
+                          </span>
+                        ) : isCompiled ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-pink-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-pink-light">
+                            <Sparkles className="h-3 w-3" />
+                            New Item
+                          </span>
+                        ) : null}
+                      </div>
+
                       {values.items.length > 1 ? (
                         <button
                           type="button"
@@ -678,46 +1014,49 @@ export function ReservationFormModal({
                       {item.itemSource === "moissanite" ? (
                         <div className="sm:col-span-2 lg:col-span-9">
                           <Label htmlFor={`item-inventory-${item.id}`}>Moissanite Catalog Item</Label>
-                          <select
+                          <SearchableItemSelect
                             id={`item-inventory-${item.id}`}
                             value={item.selectedInventoryId}
-                            onChange={(e) => handleSelectInventoryItem(index, e.target.value)}
-                            className={selectClass}
+                            onChange={(invId) => handleSelectInventoryItem(index, invId)}
                             disabled={inventoryLoading || Boolean(inventoryLoadError)}
-                          >
-                            <option value="">
-                              {inventoryLoading
+                            placeholder={
+                              inventoryLoading
                                 ? "Loading Moissanite…"
-                                : "Select from Moissanite catalog (or type details below)"}
-                            </option>
-                            {inventoryItems.map((inv) => (
-                              <option key={inv.id} value={inv.id}>
-                                {inv.sku} — {inv.description || inv.item_name} — {formatCurrency(inv.selling_price)}
-                              </option>
-                            ))}
-                          </select>
+                                : "Select from Moissanite catalog (or type details below)"
+                            }
+                            searchPlaceholder="Search Moissanite by SKU, description, or shape…"
+                            items={inventoryItems.map((inv) => ({
+                              id: inv.id,
+                              name: inv.description || inv.item_name,
+                              sku: inv.sku,
+                              category: inv.category?.name || "Moissanite",
+                              price: inv.selling_price,
+                              subtitle: inv.setting || undefined,
+                            }))}
+                          />
                         </div>
                       ) : (
                         <div className="sm:col-span-2 lg:col-span-9">
                           <Label htmlFor={`item-product-${item.id}`}>Jewelry Catalog Item</Label>
-                          <select
+                          <SearchableItemSelect
                             id={`item-product-${item.id}`}
                             value={item.selectedProductId || ""}
-                            onChange={(e) => handleSelectProductItem(index, e.target.value)}
-                            className={selectClass}
+                            onChange={(prodId) => handleSelectProductItem(index, prodId)}
                             disabled={inventoryLoading}
-                          >
-                            <option value="">
-                              {inventoryLoading
+                            placeholder={
+                              inventoryLoading
                                 ? "Loading jewelry…"
-                                : "Select from Jewelry catalog (or type details below)"}
-                            </option>
-                            {productItems.map((prod) => (
-                              <option key={prod.id} value={prod.id}>
-                                {prod.name} {prod.sku ? `(${prod.sku})` : ""} — {formatCurrency(prod.price)}
-                              </option>
-                            ))}
-                          </select>
+                                : "Select from Jewelry catalog (or type details below)"
+                            }
+                            searchPlaceholder="Search jewelry by name, SKU, or category…"
+                            items={productItems.map((prod) => ({
+                              id: prod.id,
+                              name: prod.name,
+                              sku: prod.sku,
+                              category: prod.category?.name || "Jewelry",
+                              price: prod.price,
+                            }))}
+                          />
                         </div>
                       )}
 
@@ -770,7 +1109,7 @@ export function ReservationFormModal({
 
                       <div className="flex flex-col justify-end sm:col-span-2 lg:col-span-2">
                         <Label>Total</Label>
-                        <div className="flex h-10 items-center justify-end rounded-lg border border-white/10 bg-white/[0.03] px-3 font-semibold text-pink-light">
+                        <div className="flex h-10 items-center justify-end rounded-lg border border-white/10 bg-white/[0.03] px-3 font-semibold text-pink-light text-sm">
                           {formatCurrency(itemTotal)}
                         </div>
                       </div>
@@ -781,131 +1120,133 @@ export function ReservationFormModal({
             </div>
           </div>
 
-          {/* Payment Breakdown */}
-          <div className="space-y-4 border-t border-white/[0.07] pt-4">
-            <h3 className={sectionHeadingClass}>Payment Details</h3>
+          {/* Pricing & Financials */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <h3 className={sectionHeadingClass}>Pricing & Financials</h3>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              <div>
-                <Label htmlFor={`${baseId}-subtotal`}>Subtotal</Label>
-                <Input
-                  id={`${baseId}-subtotal`}
-                  value={hasValidItems ? formatCurrency(subtotal) : "—"}
-                  readOnly
-                  disabled
-                  aria-readonly="true"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor={`${baseId}-discount`}>Discount</Label>
-                <Input
-                  id={`${baseId}-discount`}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={values.discount}
-                  onChange={(event) => update("discount", event.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor={`${baseId}-shipping-fee`}>Shipping Fee</Label>
-                <Input
-                  id={`${baseId}-shipping-fee`}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={values.shippingFee}
-                  onChange={(event) => update("shippingFee", event.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor={`${baseId}-grand-total`}>Total</Label>
-                <Input
-                  id={`${baseId}-grand-total`}
-                  value={hasValidItems ? formatCurrency(grandTotal) : "—"}
-                  readOnly
-                  disabled
-                  aria-readonly="true"
-                  className="font-bold text-pink-light"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor={`${baseId}-downpayment`}>Downpayment</Label>
-                <Input
-                  id={`${baseId}-downpayment`}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={values.downpayment}
-                  onChange={(event) => update("downpayment", event.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              {needsDownpaymentMethod ? (
-                <div className="sm:col-span-2">
-                  <Label htmlFor={`${baseId}-downpayment-method`}>Payment Method</Label>
-                  <select
-                    id={`${baseId}-downpayment-method`}
-                    value={values.downpaymentMethod}
-                    onChange={(event) => update("downpaymentMethod", event.target.value)}
-                    required
-                    className={selectClass}
-                  >
-                    <option value="">Select payment method</option>
-                    {PAYMENT_METHODS.map((method) => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+            <div>
+              <Label htmlFor={`${baseId}-discount`}>Discount</Label>
+              <Input
+                id={`${baseId}-discount`}
+                type="number"
+                min={0}
+                step="0.01"
+                value={values.discount}
+                onChange={(event) => update("discount", event.target.value)}
+                placeholder="0.00"
+              />
             </div>
 
-            {mode === "edit" ? (
-              <p className="text-xs text-muted">
-                Increasing DP records only the difference as a new payment. Existing payment history cannot be reduced or overwritten.
-              </p>
-            ) : null}
+            <div>
+              <Label htmlFor={`${baseId}-shipping-fee`}>Shipping Fee</Label>
+              <Input
+                id={`${baseId}-shipping-fee`}
+                type="number"
+                min={0}
+                step="0.01"
+                value={values.shippingFee}
+                onChange={(event) => update("shippingFee", event.target.value)}
+                placeholder="0.00"
+              />
+            </div>
 
-            {hasValidItems ? (
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm flex flex-wrap items-center justify-between gap-2">
-                <span className="text-muted">
-                  Remaining Balance:{" "}
-                  <strong className="text-foreground">
-                    {formatCurrency(Math.max(0, grandTotal - (parseNumber(values.downpayment) || 0)))}
-                  </strong>
-                </span>
-                {parseNumber(values.discount) > 0 ? (
-                  <span className="text-xs text-muted">
-                    Discount applied: −{formatCurrency(parseNumber(values.discount))}
-                  </span>
-                ) : null}
+            <div>
+              <Label htmlFor={`${baseId}-downpayment`}>
+                {isCompiled ? "Total Downpayment" : "Downpayment"}
+              </Label>
+              <Input
+                id={`${baseId}-downpayment`}
+                type="number"
+                min={0}
+                step="0.01"
+                value={values.downpayment}
+                onChange={(event) => update("downpayment", event.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor={`${baseId}-downpayment-method`}>
+                Payment Method {needsDownpaymentMethod ? "*" : "(Optional)"}
+              </Label>
+              <select
+                id={`${baseId}-downpayment-method`}
+                value={values.downpaymentMethod}
+                onChange={(event) => update("downpaymentMethod", event.target.value)}
+                className={selectClass}
+                required={needsDownpaymentMethod}
+              >
+                <option value="">Select method…</option>
+                {PAYMENT_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor={`${baseId}-type`}>Reservation Type</Label>
+              <select
+                id={`${baseId}-type`}
+                value={values.type}
+                onChange={(event) =>
+                  update("type", event.target.value as ReservationTypeOption)
+                }
+                className={selectClass}
+              >
+                {RESERVATION_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Order Totals Summary */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
+              <div>
+                <span className="text-muted">Items Subtotal: </span>
+                <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
               </div>
-            ) : null}
+              <div>
+                <span className="text-muted">Discount: </span>
+                <span className="font-semibold text-danger">-{formatCurrency(discount)}</span>
+              </div>
+              <div>
+                <span className="text-muted">Shipping: </span>
+                <span className="font-semibold text-foreground">{formatCurrency(shippingFee)}</span>
+              </div>
+              <div className="border-t border-white/10 pt-2 sm:border-t-0 sm:pt-0">
+                <span className="text-muted">Grand Total: </span>
+                <span className="text-base font-bold text-pink-light">{formatCurrency(grandTotal)}</span>
+              </div>
+            </div>
           </div>
 
           {error ? (
-            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+            <div
+              role="alert"
+              className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+            >
               {error}
-            </p>
+            </div>
           ) : null}
 
           <div className="flex items-center justify-end gap-3 border-t border-white/[0.07] pt-4">
-            <Button variant="secondary" onClick={onClose} disabled={isPending}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isPending}>
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending
                 ? "Saving…"
+                : isCompiled
+                ? "Compile & Save"
                 : mode === "create"
-                  ? "Save Reservation"
-                  : "Save Changes"}
+                ? "Add Reservation"
+                : "Save Changes"}
             </Button>
           </div>
         </form>
