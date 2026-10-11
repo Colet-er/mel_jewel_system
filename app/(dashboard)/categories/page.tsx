@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FolderCheck, Layers, Tags } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { describeDbError } from "@/lib/supabase/queries";
@@ -41,11 +42,19 @@ const COLUMNS: Column<CategoryRow>[] = [
   {
     key: "product_count",
     header: "Products",
-    render: (row) => (
-      <span className="inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-xs font-semibold text-pink-light">
-        {row.product_count.toLocaleString("en-US")} {row.product_count === 1 ? "item" : "items"}
-      </span>
-    ),
+    render: (row) => {
+      const isMoiss = row.name.toLowerCase().includes("moissanite");
+      const targetHref = isMoiss ? "/products?tab=moissanite" : `/products?category=${row.id}`;
+      return (
+        <Link
+          href={targetHref}
+          className="inline-flex rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-xs font-semibold text-pink-light transition hover:border-primary/40 hover:bg-white/[0.08]"
+          title={`View ${row.name} products`}
+        >
+          {row.product_count.toLocaleString("en-US")} {row.product_count === 1 ? "item" : "items"}
+        </Link>
+      );
+    },
     className: "text-right",
   },
   {
@@ -82,6 +91,7 @@ export default async function CategoriesPage({
     let query = supabase
       .from("categories")
       .select("id, name, description, products(count)")
+      .eq("products.is_archived", false)
       .order("name");
 
     if (q) {

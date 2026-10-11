@@ -59,6 +59,7 @@ export default async function ProductsPage({
 }) {
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q.trim() : "";
+  const categoryParam = typeof params.category === "string" ? params.category.trim() : "";
   const tab: ProductTab =
     params.tab === "moissanite" || params.tab === "non-moissanite" ? params.tab : "all";
   const sort: ProductSort =
@@ -94,23 +95,30 @@ export default async function ProductsPage({
       supabase.from("categories").select("id, name").order("name"),
     ]);
 
-    if (productsResult.error) throw new Error(productsResult.error.message);
-
-    products = (productsResult.data ?? []).map((product) => ({
-      id: product.id,
-      name: product.name,
-      sku: product.sku,
-      price: Number(product.price),
-      cost: Number(product.cost ?? 0),
-      is_active: Boolean(product.is_active),
-      category_id: product.category_id,
-      created_at: product.created_at,
-      category: Array.isArray(product.category) ? product.category[0] ?? null : product.category,
-    }));
-
     if (!categoriesResult.error && categoriesResult.data) {
       categories = categoriesResult.data.map((c) => ({ id: c.id, name: c.name }));
     }
+    const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
+    products = (productsResult.data ?? []).map((product) => {
+      const embeddedCat = Array.isArray(product.category) ? product.category[0] ?? null : product.category;
+      const catName =
+        (product.category_id ? categoryMap.get(product.category_id) : null) ??
+        embeddedCat?.name ??
+        null;
+
+      return {
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        price: Number(product.price),
+        cost: Number(product.cost ?? 0),
+        is_active: Boolean(product.is_active),
+        category_id: product.category_id,
+        created_at: product.created_at,
+        category: catName ? { name: catName } : null,
+      };
+    });
   } catch (error) {
     dbError = describeDbError(error);
   }
@@ -128,6 +136,10 @@ export default async function ProductsPage({
     filteredRows = allRows.filter((r) => isMoissanite(r));
   } else if (tab === "non-moissanite") {
     filteredRows = allRows.filter((r) => !isMoissanite(r));
+  }
+
+  if (categoryParam) {
+    filteredRows = filteredRows.filter((r) => r.category_id === categoryParam);
   }
 
   // Sort rows
