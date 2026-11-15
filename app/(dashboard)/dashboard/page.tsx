@@ -3,7 +3,6 @@ import {
   Ban,
   CheckCircle2,
   Clock,
-  Eye,
   Gem,
   PackageCheck,
   Plus,
@@ -20,10 +19,9 @@ import {
   fetchOrderStatusCounts,
   fetchOrders,
   fetchPendingDownpaymentOrders,
-  fetchSoldMoissanite,
   settledDownpayment,
 } from "@/lib/supabase/queries";
-import { formatDateTime } from "@/lib/utils/format";
+import { formatDateTime, formatReservationType } from "@/lib/utils/format";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
@@ -32,6 +30,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils/cn";
+import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
 
 const MAX_TABLE_ROWS = 8;
 
@@ -39,13 +38,6 @@ interface DownpaymentRow {
   order: Order;
   index: number;
   category: string | null;
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 0 || !parts[0]) return "DP";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 const COLUMNS: Column<DownpaymentRow>[] = [
@@ -71,21 +63,11 @@ const COLUMNS: Column<DownpaymentRow>[] = [
     },
   },
   {
-    key: "customer_name",
-    header: "CUSTOMER NAME",
-    render: (row) => {
-      const name = row.order.customer?.name;
-      if (!name) return <span className="text-muted">—</span>;
-      const initials = getInitials(name);
-      return (
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-elevated text-[10px] font-bold text-secondary">
-            {initials}
-          </div>
-          <span className="font-medium text-foreground">{name}</span>
-        </div>
-      );
-    },
+    key: "fb_name",
+    header: "FB NAME",
+    render: (row) => (
+      <FbNameInvoiceLink orderId={row.order.id} fbName={row.order.customer?.fb_name || "—"} />
+    ),
   },
   {
     key: "category",
@@ -100,23 +82,15 @@ const COLUMNS: Column<DownpaymentRow>[] = [
       ),
   },
   {
+    key: "order_type",
+    header: "ORDER TYPE",
+    className: "whitespace-nowrap",
+    render: (row) => formatReservationType(row.order.reservation_type),
+  },
+  {
     key: "status",
     header: "STATUS",
     render: (row) => <DownpaymentBadge order={row.order} />,
-  },
-  {
-    key: "action",
-    header: "ACTION",
-    className: "text-right whitespace-nowrap",
-    render: (row) => (
-      <Link
-        href={`/orders/${row.order.id}/invoice`}
-        className={buttonVariants({ variant: "secondary", size: "sm" })}
-      >
-        <Eye className="h-3.5 w-3.5" aria-hidden />
-        <span>View Invoice</span>
-      </Link>
-    ),
   },
 ];
 
@@ -206,34 +180,30 @@ export default async function DashboardPage() {
   } = { reserved: null, paid: null, shipped: null, cancelled: null };
   let pendingRows: DownpaymentRow[] = [];
   let pendingCount = 0;
-  let soldThisMonth: number | null = null;
   let availableStock: number | null = null;
   let isOwnerOrDev = false;
+  let isDeveloper = false;
 
   try {
     const { user, profile } = await getCurrentProfile();
     const isDev = isDeveloperEmail(user?.email);
-    isOwnerOrDev = profile?.role === "owner" || isDev;
+    isDeveloper = profile?.role === "developer" || isDev;
+    isOwnerOrDev = profile?.role === "owner" || isDeveloper;
 
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
 
     // Run all dashboard database queries in parallel for high response speed
-    const [counts, pending, stock, monthSoldMoiss] = await Promise.all([
+    const [counts, pending, stock] = await Promise.all([
       fetchOrderStatusCounts({ month: currentMonth, year: currentYear }),
       fetchPendingDownpaymentOrders({ month: currentMonth, year: currentYear }),
       fetchAvailableStock(),
-      fetchSoldMoissanite({ month: currentMonth, year: currentYear }),
     ]);
 
     statusCounts = counts;
     pendingCount = pending.length;
     pendingRows = buildRows(pending);
-    soldThisMonth = (monthSoldMoiss ?? []).reduce(
-      (sum, item) => sum + Number(item.quantity || 1),
-      0
-    );
     availableStock = stock;
   } catch (error) {
     dbError = describeDbError(error);
@@ -368,7 +338,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
               <div>
                 <h2 className="text-base font-semibold text-foreground">
-                  Pasabuy &amp; Commissions
+                  {isDeveloper ? <>Pasabuy &amp; Commissions</> : "Pasabuy"}
                 </h2>
                 <p className="text-xs text-muted">Fulfillment and sales pipeline</p>
               </div>
@@ -381,12 +351,14 @@ export default async function DashboardPage() {
                 value={statusCounts.shipped !== null ? statusCounts.shipped : 0}
                 href="/orders/shipped"
               />
-              <MetricRow
-                icon={<PackageCheck />}
-                label="Commission Management"
-                value="View Records"
-                href="/commission"
-              />
+              {isDeveloper ? (
+                <MetricRow
+                  icon={<PackageCheck />}
+                  label="Commission Management"
+                  value="View Records"
+                  href="/commission"
+                />
+              ) : null}
             </CardContent>
           </Card>
         ) : null}
@@ -398,7 +370,7 @@ export default async function DashboardPage() {
               <h2 className="text-base font-semibold text-foreground">
                 Moissanite Stock
               </h2>
-              <p className="text-xs text-muted">Inventory and monthly turnover</p>
+              <p className="text-xs text-muted">Available inventory</p>
             </div>
             <Gem className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           </div>
@@ -408,12 +380,6 @@ export default async function DashboardPage() {
               label="Available Stones"
               value={availableStock !== null ? availableStock.toLocaleString("en-US") : 0}
               href="/products"
-            />
-            <MetricRow
-              icon={<PackageCheck />}
-              label="Sold This Month"
-              value={soldThisMonth !== null ? soldThisMonth.toLocaleString("en-US") : 0}
-              href="/moissanite/sold"
             />
           </CardContent>
         </Card>

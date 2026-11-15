@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PaymentFormModal } from "@/components/orders/payment-form";
+import { PaymentEntryActions } from "@/components/orders/payment-entry-actions";
 import { updateOrderTransactionType } from "@/app/(dashboard)/orders/reserved/actions";
 import { cn } from "@/lib/utils/cn";
 
@@ -87,7 +88,14 @@ function CopyPanel({ order, summary }: { order: Order; summary: InvoiceSummary }
   return <CopyButton label="Message" message={getInvoiceMessage(template, summary)} />;
 }
 
-export function InvoiceView({ order: initialOrder }: { order: Order }) {
+export function InvoiceView({
+  order: initialOrder,
+  onOrderChanged,
+}: {
+  order: Order;
+  /** Called after a payment or type change so a host (e.g. the invoice modal) can reload. */
+  onOrderChanged?: () => void;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
   const [currentOrder, setCurrentOrder] = useState<Order>(initialOrder);
@@ -96,11 +104,11 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [isUpdatingType, startTypeTransition] = useTransition();
 
-  // Keep state in sync if prop updates
-  if (initialOrder.id !== currentOrder.id || initialOrder.updated_at !== currentOrder.updated_at) {
-    if (initialOrder.reservation_type !== currentOrder.reservation_type && !isUpdatingType) {
-      setCurrentOrder(initialOrder);
-    }
+  // Adopt freshly loaded order data (after a refresh/reload) unless a type change is in flight.
+  const [prevInitialOrder, setPrevInitialOrder] = useState<Order>(initialOrder);
+  if (initialOrder !== prevInitialOrder) {
+    setPrevInitialOrder(initialOrder);
+    if (!isUpdatingType) setCurrentOrder(initialOrder);
   }
 
   const currentType = (currentOrder.reservation_type ?? "regular") as ReservationType;
@@ -122,6 +130,7 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
       if (res.ok) {
         setNotice(`Transaction type successfully updated to ${newType.toUpperCase()}.`);
         router.refresh();
+        onOrderChanged?.();
       } else {
         setNotice(res.message ?? "Failed to update transaction type.");
       }
@@ -204,7 +213,7 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
 
       <Card
         id="invoice-document"
-        className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-pink-300 bg-white text-zinc-800 shadow-lg font-serif"
+        className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-pink-300 bg-white text-zinc-800 shadow-lg"
       >
         <div className="h-1.5 bg-pink-500" />
 
@@ -253,8 +262,6 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
           </div>
 
           <dl className="grid grid-cols-[auto_auto] content-start gap-x-4 gap-y-1 text-xs sm:min-w-48 sm:text-sm">
-            <dt className="font-semibold text-zinc-400">Invoice No.</dt>
-            <dd className="text-right font-bold text-zinc-800">{summary.invoiceNumber}</dd>
             <dt className="font-semibold text-zinc-400">Date</dt>
             <dd className="text-right font-medium text-zinc-800">{summary.date}</dd>
             <dt className="font-semibold text-zinc-400">Status</dt>
@@ -262,12 +269,13 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
           </dl>
         </section>
 
-        <div className="overflow-x-auto">
+        <div>
           <table className="w-full text-left text-xs sm:text-sm">
             <thead>
               <tr className="bg-pink-500 text-xs sm:text-sm font-bold uppercase tracking-[0.14em] text-white">
                 <th scope="col" className="w-28 px-4 py-2.5 text-left whitespace-nowrap sm:px-6">Code</th>
                 <th scope="col" className="px-4 py-2.5 text-center sm:px-6">Items</th>
+                <th scope="col" className="w-20 px-4 py-2.5 text-center whitespace-nowrap sm:px-6">Qty</th>
                 <th scope="col" className="w-32 px-4 py-2.5 text-right whitespace-nowrap sm:px-6">Amount</th>
               </tr>
             </thead>
@@ -281,14 +289,10 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
                     {item.sku ?? "—"}
                   </td>
                   <td className="px-4 py-2.5 text-center text-xs sm:text-sm font-medium text-zinc-900 sm:px-6">
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <span>{item.name}</span>
-                      {item.quantity > 1 ? (
-                        <span className="inline-flex items-center rounded bg-pink-100 px-1.5 py-0.5 text-[11px] font-semibold text-pink-700 whitespace-nowrap">
-                          ×{item.quantity.toLocaleString("en-US")}
-                        </span>
-                      ) : null}
-                    </span>
+                    {item.name}
+                  </td>
+                  <td className="px-4 py-2.5 text-center whitespace-nowrap text-xs sm:text-sm font-semibold tabular-nums text-zinc-900 sm:px-6">
+                    {item.quantity.toLocaleString("en-US")}
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap text-xs sm:text-sm font-semibold tabular-nums text-zinc-900 sm:px-6">
                     {formatCurrency(item.amount)}
@@ -297,7 +301,7 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
               ))}
               {summary.items.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-xs sm:text-sm text-zinc-400">
+                  <td colSpan={4} className="px-4 py-6 text-center text-xs sm:text-sm text-zinc-400">
                     No items recorded for this order.
                   </td>
                 </tr>
@@ -399,9 +403,28 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
                         <span className="text-zinc-400">•</span>
                         <span className="font-medium text-zinc-600">{formatCurrency(payment.amount)}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] text-zinc-500">
-                        <Calendar className="h-3 w-3" aria-hidden />
-                        {payment.created_at ? formatDate(payment.created_at) : "—"}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1 text-[11px] text-zinc-500">
+                          <Calendar className="h-3 w-3" aria-hidden />
+                          {payment.created_at ? formatDate(payment.created_at) : "—"}
+                        </div>
+                        {currentOrder.status !== "cancelled" && payment.id ? (
+                          <PaymentEntryActions
+                            payment={{
+                              id: payment.id,
+                              amount: Number(payment.amount),
+                              payment_method: payment.payment_method ?? "Cash",
+                              reference_number: payment.reference_number ?? null,
+                              notes: payment.notes ?? null,
+                            }}
+                            tone="light"
+                            onChanged={(msg) => {
+                              setNotice(msg);
+                              router.refresh();
+                              onOrderChanged?.();
+                            }}
+                          />
+                        ) : null}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
@@ -483,8 +506,6 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
         <PaymentFormModal
           reservation={{
             id: currentOrder.id,
-            invoiceNumber: summary.invoiceNumber,
-            customerName: summary.customerName,
             fbName: currentOrder.customer?.fb_name ?? "",
             amount: summary.totalAmount,
             totalPaid: summary.totalPaid,
@@ -494,6 +515,7 @@ export function InvoiceView({ order: initialOrder }: { order: Order }) {
           onSuccess={(msg) => {
             setShowPaymentModal(false);
             setNotice(msg);
+            onOrderChanged?.();
           }}
         />
       ) : null}

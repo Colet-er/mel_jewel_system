@@ -20,6 +20,11 @@ describe("reservation/payment migration contract", () => {
   const multiItemReservations = migration("0023_multi_item_reservations.sql");
   const reshipRtoOrders = migration("0024_reship_rto_orders.sql");
   const ownerStrictlyCommissions = migration("0025_owner_only_commissions.sql");
+  const removeSoldMoissanite = migration("0026_remove_sold_moissanite_tracking.sql");
+  const editDeletePayments = migration("0027_edit_delete_order_payments.sql");
+  const bookingStage = migration("0028_booking_stage.sql");
+  const bookingNeedsDownpayment = migration("0029_booking_requires_downpayment.sql");
+  const deliveryStatusAndCancel = migration("0030_delivery_status_and_cancel.sql");
 
   it("defines the complete clean-install reservation lifecycle", () => {
     for (const field of [
@@ -155,5 +160,58 @@ describe("reservation/payment migration contract", () => {
     expect(ownerStrictlyCommissions).toContain('create policy "Owners can delete commissions"');
     expect(ownerStrictlyCommissions).toMatch(/using \(public\.is_owner\(\)\)/i);
     expect(ownerStrictlyCommissions).toMatch(/with check \(public\.is_owner\(\)\)/i);
+  });
+
+  it("stops writing sold_moissanite rows from the order workflow without dropping data", () => {
+    for (const fn of ["mark_order_paid", "mark_order_shipped", "record_order_payment"]) {
+      expect(removeSoldMoissanite).toContain(`create or replace function public.${fn}`);
+    }
+    expect(removeSoldMoissanite).not.toContain("insert into public.sold_moissanite");
+    expect(removeSoldMoissanite).not.toMatch(/drop table/i);
+    expect(removeSoldMoissanite).toContain("rec.status not in ('paid', 'reserved', 'rto')");
+    expect(removeSoldMoissanite).toContain("perform public.mark_order_paid(p_order_id)");
+  });
+
+  it("lets staff edit or delete a payment and re-syncs paid/reserved status", () => {
+    expect(editDeletePayments).toContain("create or replace function public.update_order_payment");
+    expect(editDeletePayments).toContain("create or replace function public.delete_order_payment");
+    expect(editDeletePayments).toContain("perform public.sync_order_payment_status(v_order.id)");
+    expect(editDeletePayments).toContain("update public.orders set status = 'reserved', paid_at = null");
+    expect(editDeletePayments).toContain("Payment amount cannot exceed the remaining balance");
+    expect(editDeletePayments).toContain("revoke all on function public.sync_order_payment_status(uuid) from public, anon, authenticated");
+    expect(editDeletePayments.match(/if not public\.is_staff_or_admin\(\) then/g)).toHaveLength(2);
+    expect(editDeletePayments).not.toMatch(/drop table/i);
+  });
+
+  it("adds a booked stage: book, then tracking no., then ship", () => {
+    expect(bookingStage).toContain("alter type public.order_status add value 'booked'");
+    expect(bookingStage).toContain("'reserved', 'paid', 'booked', 'shipped'");
+    expect(bookingStage).toContain("add column if not exists tracking_number text");
+    expect(bookingStage).toContain("create or replace function public.mark_order_booked");
+    expect(bookingStage).toContain("create or replace function public.set_order_tracking_number");
+    expect(bookingStage).toContain("Only booked orders can be marked as shipped");
+    expect(bookingStage).toContain("Enter a tracking number before marking as shipped");
+    expect(bookingStage).toContain("update public.orders set status = 'booked'");
+    expect(bookingStage.match(/if not public\.is_staff_or_admin\(\) then/g)).toHaveLength(4);
+    expect(bookingStage).not.toMatch(/drop table|delete from public\.orders/i);
+  });
+
+  it("requires at least a downpayment before a reservation can be booked", () => {
+    expect(bookingNeedsDownpayment).toContain("create or replace function public.mark_order_booked");
+    expect(bookingNeedsDownpayment).toContain("if rec.status::text = 'reserved' then");
+    expect(bookingNeedsDownpayment).toContain("A downpayment is required before booking");
+    // ₱0 COD entries no longer move a reservation to Booking.
+    expect(bookingNeedsDownpayment).toContain("create or replace function public.record_order_payment");
+    expect(bookingNeedsDownpayment).not.toContain("set status = 'booked', booked_at = coalesce(booked_at, now())");
+    expect(bookingNeedsDownpayment).toContain("perform public.mark_order_paid(p_order_id)");
+  });
+
+  it("adds a display-only delivery status and lets later stages be cancelled", () => {
+    expect(deliveryStatusAndCancel).toContain("add column if not exists delivery_status text");
+    expect(deliveryStatusAndCancel).toContain("orders_delivery_status_check");
+    expect(deliveryStatusAndCancel).toContain("create or replace function public.set_order_delivery_status");
+    expect(deliveryStatusAndCancel).toContain("rec.status::text not in ('reserved', 'paid', 'booked', 'shipped', 'rto')");
+    // The delivery label never changes the lifecycle status.
+    expect(deliveryStatusAndCancel).not.toMatch(/set status = '(shipped|claimed|rto|booked)'/);
   });
 });

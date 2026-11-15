@@ -34,10 +34,13 @@ export function SidebarNav({ onNavigate, role, developerAccess, collapsed }: Sid
       )}
     >
       {NAV_GROUPS.map((group, groupIndex) => {
-        const isOwnerOrDev = role === "owner" || role === "developer" || developerAccess;
+        const isDeveloper = role === "developer" || developerAccess;
+        const isOwnerOrDev = role === "owner" || isDeveloper;
         const visibleItems = group.items.filter(
           (item) =>
-            (item.href !== "/commission" || isOwnerOrDev) &&
+            // Commission & Assistance is no longer part of the owner's account.
+            (item.href !== "/commission" || isDeveloper) &&
+            (item.href !== "/orders/claimed" || isOwnerOrDev) &&
             (item.href !== "/reports" || isOwnerOrDev) &&
             (item.href !== "/accounts" || isOwnerOrDev)
         );

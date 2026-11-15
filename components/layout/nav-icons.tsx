@@ -3,6 +3,7 @@
 import {
   BadgeCheck,
   CheckCircle2,
+  ClipboardList,
   Clock,
   CreditCard,
   DollarSign,
@@ -29,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   "shopping-cart": ShoppingCart,
   "plus-circle": PlusCircle,
   clock: Clock,
+  "clipboard-list": ClipboardList,
   "badge-check": BadgeCheck,
   truck: Truck,
   "x-circle": XCircle,

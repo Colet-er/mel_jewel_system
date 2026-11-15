@@ -1,4 +1,4 @@
-import type { OrderStatus, Order, Commission, MoissaniteSku, SoldMoissanite, Collection } from "@/types";
+import type { OrderStatus, Order, Commission, MoissaniteSku, Collection } from "@/types";
 import { createClient } from "./server";
 
 /** Required downpayment is this fraction of the order total. */
@@ -29,12 +29,6 @@ export interface CommissionFilter {
 export interface MoissaniteSkuFilter {
   q?: string;
   status?: "active" | "low_stock" | "out_of_stock" | "archived";
-}
-
-export interface SoldMoissaniteFilter {
-  month?: number;
-  year?: number;
-  q?: string;
 }
 
 export interface CollectionsFilter {
@@ -106,6 +100,9 @@ const ORDER_SELECT = `
   reservation_type,
   reserved_until,
   paid_at,
+  booked_at,
+  tracking_number,
+  delivery_status,
   shipped_at,
   claimed_at,
   cancelled_at,
@@ -118,7 +115,7 @@ const ORDER_SELECT = `
   updated_at,
   customer:customers ( name, fb_name, phone, address ),
   items:order_items ( id, quantity, unit_price, line_total, product:products ( name, sku, cost, category:categories ( name ) ) ),
-  payments:order_payments ( kind, amount, payment_method, reference_number, notes, created_at, evidence:payment_evidence ( id, storage_path, mime_type ) )
+  payments:order_payments ( id, kind, amount, payment_method, reference_number, notes, created_at, evidence:payment_evidence ( id, storage_path, mime_type ) )
 `;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -170,6 +167,26 @@ export async function fetchOrders(filter: OrdersFilter = {}): Promise<Order[]> {
   }
 
   return (data ?? []) as unknown as Order[];
+}
+
+/**
+ * True once any money (> 0) has been recorded on the order. Reservations with
+ * a downpayment are listed on the Paid page instead of Reserved.
+ */
+export function hasRecordedPayment(order: Pick<Order, "payments">): boolean {
+  return (order.payments ?? []).some((payment) => Number(payment.amount) > 0);
+}
+
+/**
+ * Paid page data: fully paid orders plus reservations that already have a
+ * downpayment (status still "reserved" in the database).
+ */
+export async function fetchPaidPageOrders(filter: Omit<OrdersFilter, "status"> = {}): Promise<Order[]> {
+  const [paid, reserved] = await Promise.all([
+    fetchOrders({ ...filter, status: "paid" }),
+    fetchOrders({ ...filter, status: "reserved" }),
+  ]);
+  return [...paid, ...reserved.filter(hasRecordedPayment)];
 }
 
 /** Totals exclude cancelled orders; profit uses product cost via order items. */
@@ -241,7 +258,8 @@ export async function fetchPendingDownpaymentOrders(filter?: {
   }
 
   const orders = (data ?? []) as unknown as Order[];
-  return orders.filter((order) => !isDownpaymentSettled(order));
+  // Reservations with any payment live on the Paid page now.
+  return orders.filter((order) => !hasRecordedPayment(order));
 }
 
 export interface OrderStatusCounts {
@@ -251,6 +269,7 @@ export interface OrderStatusCounts {
   claimed: number;
   cancelled: number;
   rto: number;
+  booked: number;
 }
 
 /** Count of non-archived orders per status using lightweight head queries. */
@@ -260,7 +279,7 @@ export async function fetchOrderStatusCounts(filter?: {
 }): Promise<OrderStatusCounts> {
   const supabase = await createClient();
 
-  const statuses = ["reserved", "paid", "shipped", "claimed", "cancelled", "rto"] as const;
+  const statuses = ["reserved", "paid", "shipped", "claimed", "cancelled", "rto", "booked"] as const;
 
   const counts = await Promise.all(
     statuses.map(async (status) => {
@@ -285,13 +304,33 @@ export async function fetchOrderStatusCounts(filter?: {
     })
   );
 
+  // Reservations that already have a downpayment count as Paid, not Reserved.
+  let reservedWithPayment = 0;
+  if (counts[0] > 0) {
+    let reservedQuery = supabase
+      .from("orders")
+      .select("id, payments:order_payments ( amount )")
+      .is("archived_at", null)
+      .eq("status", "reserved");
+    if (filter?.year && filter?.month) {
+      const range = monthRange(filter.year, filter.month);
+      reservedQuery = reservedQuery.gte("created_at", range.start).lt("created_at", range.end);
+    }
+    const { data, error } = await reservedQuery.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
+    if (error) throw new Error(error.message);
+    reservedWithPayment = (data ?? []).filter((row) =>
+      hasRecordedPayment(row as unknown as Pick<Order, "payments">)
+    ).length;
+  }
+
   return {
-    reserved: counts[0],
-    paid: counts[1],
+    reserved: counts[0] - reservedWithPayment,
+    paid: counts[1] + reservedWithPayment,
     shipped: counts[2],
     claimed: counts[3],
     cancelled: counts[4],
     rto: counts[5],
+    booked: counts[6],
   };
 }
 
@@ -476,59 +515,6 @@ export async function fetchMoissaniteSkus(filter: MoissaniteSkuFilter = {}): Pro
 }
 
 // ============================================================
-// Sold Moissanite queries
-// ============================================================
-
-const SOLD_MOISSANITE_SELECT = `
-  id,
-  order_id,
-  date_sold,
-  invoice_number,
-  sku_id,
-  customer_id,
-  quantity,
-  selling_price,
-  total_amount,
-  status,
-  notes,
-  created_by,
-  created_at,
-  updated_at,
-  sku:moissanite_skus ( id, sku, item_name, selling_price ),
-  customer:customers ( name, fb_name, phone, address )
-`;
-
-export async function fetchSoldMoissanite(filter: SoldMoissaniteFilter = {}): Promise<SoldMoissanite[]> {
-  const supabase = await createClient();
-
-  let query = supabase
-    .from("sold_moissanite")
-    .select(SOLD_MOISSANITE_SELECT)
-    .order("date_sold", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (filter.month && filter.year) {
-    const { start, end } = monthRange(filter.year, filter.month);
-    query = query.gte("date_sold", start).lt("date_sold", end);
-  }
-
-  if (filter.q) {
-    const term = searchTerm(filter.q);
-    if (term) {
-      query = query.or(`invoice_number.ilike.%${term}%`);
-    }
-  }
-
-  const { data, error } = await query.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as unknown as SoldMoissanite[];
-}
-
-// ============================================================
 // Collections queries
 // ============================================================
 
@@ -543,7 +529,7 @@ const COLLECTIONS_SELECT = `
   collected_by,
   collected_at,
   created_at,
-  order:orders ( id, order_number, status, total_amount, customer:customers ( name, fb_name ) ),
+  order:orders ( id, order_number, status, reservation_type, total_amount, customer:customers ( name, fb_name ) ),
   customer:customers ( name, fb_name, phone, address )
 `;
 

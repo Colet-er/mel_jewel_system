@@ -17,6 +17,7 @@ import { CommissionStatusBadge } from "@/components/ui/status-badge";
 import { StatCard } from "@/components/ui/stat-card";
 import { CommissionRecordForm } from "@/components/commission/commission-record-form";
 import { CommissionActionMenu } from "@/components/commission/commission-action-menu";
+import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata = { title: "Commission & Assistance" };
@@ -33,9 +34,7 @@ interface CommissionRow {
   id: string;
   relatedOrderId: string | null;
   date: string;
-  customerName: string;
-  customerFbName: string | null;
-  orderNumber: string | null;
+  fbName: string;
   items: AssistedItem[];
   fallbackDescription: string | null;
   salePrice: number;
@@ -47,50 +46,13 @@ interface CommissionRow {
 
 const COLUMNS: Column<CommissionRow>[] = [
   {
-    key: "customerName",
-    header: "Customer",
-    render: (row) => {
-      const initials = (row.customerName || "U")
-        .split(" ")
-        .map((w) => w[0])
-        .filter(Boolean)
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-
-      return (
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-pink-light ring-1 ring-primary/20">
-            {initials || "C"}
-          </div>
-          <div>
-            <p className="font-semibold text-foreground">{row.customerName}</p>
-            {row.customerFbName && row.customerFbName !== row.customerName ? (
-              <p className="text-xs text-muted">{row.customerFbName}</p>
-            ) : null}
-          </div>
-        </div>
-      );
-    },
-  },
-  {
-    key: "orderNumber",
-    header: "Order #",
+    key: "fbName",
+    header: "FB Name",
     render: (row) =>
-      row.orderNumber ? (
-        row.relatedOrderId ? (
-          <Link
-            href={`/orders/${row.relatedOrderId}/invoice`}
-            className="font-mono text-xs font-semibold text-primary hover:underline"
-            title="View invoice"
-          >
-            {row.orderNumber}
-          </Link>
-        ) : (
-          <span className="font-mono text-xs font-semibold text-pink-light">{row.orderNumber}</span>
-        )
+      row.relatedOrderId ? (
+        <FbNameInvoiceLink orderId={row.relatedOrderId} fbName={row.fbName} />
       ) : (
-        <span className="text-xs text-muted italic">Unlinked</span>
+        <span className="text-xs italic text-muted">{row.fbName}</span>
       ),
   },
   {
@@ -98,11 +60,11 @@ const COLUMNS: Column<CommissionRow>[] = [
     header: "Assisted Items & Price",
     render: (row) =>
       row.items.length > 0 ? (
-        <div className="min-w-[200px] space-y-1.5">
+        <div className="min-w-[9rem] space-y-1.5">
           {row.items.map((item) => (
             <div key={item.id} className="flex items-start justify-between gap-2 text-xs">
               <div>
-                <p className="font-medium text-foreground">
+                <p className="break-words font-medium text-foreground">
                   {item.quantity > 1 ? `${item.quantity}x ` : ""}
                   {item.name}
                 </p>
@@ -158,8 +120,7 @@ const COLUMNS: Column<CommissionRow>[] = [
       <CommissionActionMenu
         id={row.id}
         status={row.status}
-        relatedOrderId={row.relatedOrderId}
-        customerName={row.customerName}
+        fbName={row.fbName}
         workerName={row.assistedBy}
       />
     ),
@@ -167,9 +128,7 @@ const COLUMNS: Column<CommissionRow>[] = [
 ];
 
 const CSV_HEADERS = [
-  "Customer's Name",
-  "Facebook Name",
-  "Order Number",
+  "FB Name",
   "Assisted Items",
   "Total Sale Price",
   "Assisted By",
@@ -187,7 +146,8 @@ export default async function CommissionPage({
   const { user, profile } = await getCurrentProfile();
   const isDev = isDeveloperEmail(user.email);
 
-  if (profile?.role !== "owner" && profile?.role !== "developer" && !isDev) {
+  // Commission & Assistance was removed from the owner's account; developer only.
+  if (profile?.role !== "developer" && !isDev) {
     notFound();
   }
 
@@ -221,7 +181,7 @@ export default async function CommissionPage({
       .filter((order) => order.status !== "cancelled" && order.status !== "rto")
       .map((order) => ({
         id: order.id,
-        label: `${order.order_number} - ${order.customer?.name ?? "Unknown"} (${formatCurrency(Number(order.total_amount))})`,
+        label: `${order.customer?.fb_name || "No FB name"} · ${formatDate(order.created_at)} (${formatCurrency(Number(order.total_amount))})`,
       }));
 
     allMonthCommissions = (commissions ?? []).map((commission) => {
@@ -238,9 +198,7 @@ export default async function CommissionPage({
         id: commission.id,
         relatedOrderId: order?.id ?? null,
         date: commission.date,
-        customerName: order?.customer?.name ?? "Unlinked customer",
-        customerFbName: order?.customer?.fb_name ?? null,
-        orderNumber: order?.order_number ?? null,
+        fbName: order ? order.customer?.fb_name || "—" : "Unlinked",
         items,
         fallbackDescription: commission.description,
         salePrice: Number(order?.total_amount ?? 0),
@@ -261,9 +219,7 @@ export default async function CommissionPage({
     rows = needle
       ? mappedRows.filter((row) =>
           [
-            row.customerName,
-            row.customerFbName,
-            row.orderNumber,
+            row.fbName,
             row.assistedBy,
             row.fallbackDescription,
             row.notes,
@@ -294,9 +250,7 @@ export default async function CommissionPage({
     .reduce((sum, row) => sum + row.commissionAmount, 0);
 
   const csvRows = records.map((row) => [
-    row.customerName,
-    row.customerFbName ?? "",
-    row.orderNumber ?? "",
+    row.fbName,
     row.items.map((item) => `${item.quantity}x ${item.name}`).join(" | ") ||
       row.fallbackDescription ||
       "",
@@ -354,7 +308,7 @@ export default async function CommissionPage({
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             {/* Status Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Link
                 href={`/commission?month=${month}&year=${year}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
                 className={cn(
@@ -406,7 +360,7 @@ export default async function CommissionPage({
             <div className="flex flex-wrap items-center gap-3">
               <MonthYearFilter month={month} year={year} />
               <div className="w-full sm:w-64">
-                <SearchInput placeholder="Search customer, item, employee..." />
+                <SearchInput placeholder="Search FB name, item, employee..." />
               </div>
             </div>
           </div>
@@ -439,7 +393,7 @@ export default async function CommissionPage({
                   title={q ? "No matching assistance records" : "No commission records for this period"}
                   description={
                     q
-                      ? "Try searching for a different customer name, employee, or item."
+                      ? "Try searching for a different FB name, employee, or item."
                       : "Use the 'Add Record' button to link an employee's assistance to a customer order."
                   }
                 />

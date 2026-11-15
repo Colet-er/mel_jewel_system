@@ -14,7 +14,6 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { formatCurrency } from "@/lib/utils/format";
 import { PAYMENT_METHODS } from "@/lib/utils/payment-validation";
 import { createClient } from "@/lib/supabase/client";
-import { SearchableItemSelect } from "./searchable-item-select";
 
 export type ReservationTypeOption = "Regular" | "Pasabuy" | "COD";
 export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
@@ -25,9 +24,6 @@ export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
 
 export interface FormLineItem {
   id: string;
-  itemSource: "moissanite" | "product";
-  selectedInventoryId: string;
-  selectedProductId?: string;
   itemCode: string;
   itemName: string;
   category: string;
@@ -76,9 +72,6 @@ interface ActiveCustomerReservation {
 function createEmptyItem(idPrefix: string = "item"): FormLineItem {
   return {
     id: `${idPrefix}-${Math.random().toString(36).substring(2, 9)}`,
-    itemSource: "product",
-    selectedInventoryId: "",
-    selectedProductId: "",
     itemCode: "",
     itemName: "",
     category: "",
@@ -94,12 +87,6 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
   if (initial?.items && initial.items.length > 0) {
     initialItems = initial.items.map((item, idx) => ({
       id: item.id || `item-${idx}-${Math.random().toString(36).substring(2, 9)}`,
-      itemSource:
-        item.itemSource === "moissanite" || Boolean(item.selectedInventoryId)
-          ? "moissanite"
-          : "product",
-      selectedInventoryId: item.selectedInventoryId || "",
-      selectedProductId: item.selectedProductId || "",
       itemCode: item.itemCode || "",
       itemName: item.itemName || "",
       category: item.category || "",
@@ -111,9 +98,6 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
     initialItems = [
       {
         id: `item-${Math.random().toString(36).substring(2, 9)}`,
-        itemSource: "product",
-        selectedInventoryId: "",
-        selectedProductId: "",
         itemCode: initial.itemCode || "",
         itemName: initial.itemName || "",
         category: initial.category || "",
@@ -149,24 +133,6 @@ interface ReservationFormModalProps {
   onSuccess?: (message: string) => void;
 }
 
-interface MoissaniteInventoryOption {
-  id: string;
-  sku: string;
-  item_name: string;
-  description: string | null;
-  selling_price: number;
-  setting: string | null;
-  category: { name: string } | null;
-}
-
-interface ProductCatalogOption {
-  id: string;
-  name: string;
-  sku: string | null;
-  price: number;
-  category: { name: string } | null;
-}
-
 const selectClass =
   "h-10 w-full rounded-lg border border-white/10 bg-background/55 px-3 text-sm text-foreground shadow-inner shadow-black/5 transition-all duration-200 hover:border-white/20 focus:border-primary focus:bg-background/80 focus:ring-4 focus:ring-primary/10";
 
@@ -176,22 +142,6 @@ const sectionHeadingClass =
 function parseNumber(value: string): number {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
-}
-
-function isMoissaniteProduct(product: {
-  name: string;
-  sku?: string | null;
-  category?: { name: string } | null;
-}): boolean {
-  const cat = (product.category?.name ?? "").toLowerCase().trim();
-  const sku = (product.sku ?? "").toUpperCase().trim();
-  const name = product.name.toLowerCase().trim();
-  return (
-    cat === "moissanite" ||
-    cat.includes("moissanite") ||
-    sku.startsWith("MOISS") ||
-    name.includes("moissanite")
-  );
 }
 
 function round2(value: number): number {
@@ -210,13 +160,9 @@ export function ReservationFormModal({
   const baseId = useId();
   const [values, setValues] = useState<ReservationFormValues>(() => normalizeInitialValues(initial));
   const [error, setError] = useState<string | null>(null);
-  const [inventoryItems, setInventoryItems] = useState<MoissaniteInventoryOption[]>([]);
-  const [productItems, setProductItems] = useState<ProductCatalogOption[]>([]);
   const [activeReservations, setActiveReservations] = useState<ActiveCustomerReservation[]>([]);
   const [compiledOrderId, setCompiledOrderId] = useState<string | null>(null);
   const [ignoredMatchId, setIgnoredMatchId] = useState<string | null>(null);
-  const [inventoryLoading, setInventoryLoading] = useState(true);
-  const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -231,19 +177,7 @@ export function ReservationFormModal({
     let active = true;
     const supabase = createClient();
 
-    void Promise.all([
-      supabase
-        .from("moissanite_skus")
-        .select("id,sku,item_name,description,selling_price,setting,category:categories(name)")
-        .neq("status", "archived")
-        .order("sku"),
-      supabase
-        .from("products")
-        .select("id,name,sku,price,category:categories(name)")
-        .eq("is_active", true)
-        .eq("is_archived", false)
-        .order("name"),
-      supabase
+    void supabase
         .from("orders")
         .select(`
           id,
@@ -280,82 +214,9 @@ export function ReservationFormModal({
         `)
         .eq("status", "reserved")
         .is("archived_at", null)
-        .order("created_at", { ascending: false }),
-    ]).then(([moissaniteResult, productsResult, activeOrdersResult]) => {
+        .order("created_at", { ascending: false })
+      .then((activeOrdersResult) => {
       if (!active) return;
-      setInventoryLoading(false);
-
-      if (moissaniteResult.error) {
-        setInventoryLoadError("Could not load the Moissanite catalog. You can still enter item details manually.");
-      } else if (moissaniteResult.data) {
-        const items = moissaniteResult.data.map((item) => ({
-          ...item,
-          selling_price: Number(item.selling_price),
-          category: Array.isArray(item.category) ? item.category[0] ?? null : item.category,
-        })) as MoissaniteInventoryOption[];
-        setInventoryItems(items);
-
-        // Auto-link selectedInventoryId if matching SKU or name exists
-        setValues((current) => {
-          let updated = false;
-          const nextItems = current.items.map((it) => {
-            if (it.itemSource === "moissanite" && !it.selectedInventoryId) {
-              const matched = items.find(
-                (inv) =>
-                  (it.itemCode && inv.sku.toLowerCase() === it.itemCode.toLowerCase()) ||
-                  (it.itemName &&
-                    (inv.item_name.toLowerCase() === it.itemName.toLowerCase() ||
-                      inv.description?.toLowerCase() === it.itemName.toLowerCase()))
-              );
-              if (matched) {
-                updated = true;
-                return {
-                  ...it,
-                  selectedInventoryId: matched.id,
-                  category: it.category || matched.category?.name || "Moissanite",
-                };
-              }
-            }
-            return it;
-          });
-          return updated ? { ...current, items: nextItems } : current;
-        });
-      }
-
-      if (!productsResult.error && productsResult.data) {
-        const products = productsResult.data
-          .map((prod) => ({
-            ...prod,
-            price: Number(prod.price),
-            category: Array.isArray(prod.category) ? prod.category[0] ?? null : prod.category,
-          }))
-          .filter((prod) => !isMoissaniteProduct(prod)) as ProductCatalogOption[];
-        setProductItems(products);
-
-        // Auto-link selectedProductId if matching SKU or name exists
-        setValues((current) => {
-          let updated = false;
-          const nextItems = current.items.map((it) => {
-            if (it.itemSource === "product" && !it.selectedProductId) {
-              const matched = products.find(
-                (p) =>
-                  (it.itemCode && p.sku && p.sku.toLowerCase() === it.itemCode.toLowerCase()) ||
-                  (it.itemName && p.name.toLowerCase() === it.itemName.toLowerCase())
-              );
-              if (matched) {
-                updated = true;
-                return {
-                  ...it,
-                  selectedProductId: matched.id,
-                  category: it.category || matched.category?.name || "Jewelry",
-                };
-              }
-            }
-            return it;
-          });
-          return updated ? { ...current, items: nextItems } : current;
-        });
-      }
 
       if (!activeOrdersResult.error && activeOrdersResult.data) {
         const parsedActive: ActiveCustomerReservation[] = activeOrdersResult.data.map((order) => {
@@ -375,20 +236,11 @@ export function ReservationFormModal({
             const prod = Array.isArray(oi.product) ? oi.product[0] : oi.product;
             const rawCat = prod?.category as { name?: string } | { name?: string }[] | null | undefined;
             const cat = Array.isArray(rawCat) ? rawCat[0]?.name ?? "" : rawCat?.name ?? "";
-            const isMoiss = Boolean(
-              prod?.sku?.toUpperCase().startsWith("MOISS") ||
-              cat?.toLowerCase() === "moissanite" ||
-              prod?.name?.toLowerCase().includes("moissanite")
-            );
-
             return {
               id: oi.id || `prev-item-${idx}-${Math.random().toString(36).substring(2, 7)}`,
-              itemSource: isMoiss ? "moissanite" : "product",
-              selectedInventoryId: isMoiss ? (prod?.id || "") : "",
-              selectedProductId: isMoiss ? "" : (prod?.id || ""),
               itemCode: prod?.sku || "",
               itemName: prod?.name || "Reserved Item",
-              category: cat || (isMoiss ? "Moissanite" : "Jewelry"),
+              category: cat,
               quantity: String(oi.quantity || 1),
               price: String(oi.unit_price || 0),
               isExistingFromCompiledOrder: true,
@@ -561,67 +413,6 @@ export function ReservationFormModal({
     setError(null);
   }
 
-  function handleSelectInventoryItem(index: number, inventoryId: string) {
-    const item = inventoryItems.find((candidate) => candidate.id === inventoryId);
-    setValues((current) => {
-      const nextItems = [...current.items];
-      if (item) {
-        const itemCat = item.category?.name?.trim() || "Moissanite";
-        nextItems[index] = {
-          ...nextItems[index],
-          selectedInventoryId: inventoryId,
-          selectedProductId: "",
-          itemSource: "moissanite",
-          itemCode: item.sku,
-          itemName: item.description || item.item_name,
-          category: itemCat,
-          price: item.selling_price.toFixed(2),
-        };
-      } else {
-        nextItems[index] = {
-          ...nextItems[index],
-          selectedInventoryId: "",
-          itemCode: "",
-          itemName: "",
-          price: "",
-        };
-      }
-      return { ...current, items: nextItems };
-    });
-    setError(null);
-  }
-
-  function handleSelectProductItem(index: number, productId: string) {
-    const product = productItems.find((candidate) => candidate.id === productId);
-    setValues((current) => {
-      const nextItems = [...current.items];
-      if (product) {
-        const prodCat = product.category?.name?.trim() || "Jewelry";
-        nextItems[index] = {
-          ...nextItems[index],
-          selectedProductId: productId,
-          selectedInventoryId: "",
-          itemSource: "product",
-          itemCode: product.sku || "",
-          itemName: product.name,
-          category: prodCat,
-          price: product.price.toFixed(2),
-        };
-      } else {
-        nextItems[index] = {
-          ...nextItems[index],
-          selectedProductId: "",
-          itemCode: "",
-          itemName: "",
-          category: "",
-          price: "",
-        };
-      }
-      return { ...current, items: nextItems };
-    });
-    setError(null);
-  }
-
   // Calculate Subtotal (sum of all line totals: qty * unitPrice)
   let subtotal = 0;
   let hasValidItems = values.items.length > 0;
@@ -704,7 +495,7 @@ export function ReservationFormModal({
       const ok = await confirm({
         title: compiledOrderId ? "Compile with Existing Reservation" : "Save Reservation Changes",
         description: compiledOrderId
-          ? `Compile these ${values.items.length} items into active Order #${values.invoiceNumber}? This preserves previous records without separating.`
+          ? `Compile these ${values.items.length} items into ${values.fbName || "this customer"}'s active reservation? This preserves previous records without separating.`
           : "Are you sure you want to save the changes to this reservation?",
         confirmLabel: compiledOrderId ? "Compile & Save" : "Save Changes",
         variant: "primary",
@@ -727,7 +518,7 @@ export function ReservationFormModal({
       if (result.ok) {
         let successMsg = "Reservation successfully created.";
         if (compiledOrderId) {
-          successMsg = `Reservation successfully compiled into Order #${values.invoiceNumber}.`;
+          successMsg = `Reservation successfully compiled into ${values.fbName || "the customer"}'s active order.`;
         } else if (mode === "edit") {
           successMsg = "Reservation changes successfully saved.";
         }
@@ -769,7 +560,7 @@ export function ReservationFormModal({
             </h2>
             {isCompiled ? (
               <span className="rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                ⚡ Auto-Compiling with Order #{values.invoiceNumber}
+                ⚡ Auto-Compiling with {values.fbName || "existing"} reservation
               </span>
             ) : null}
           </div>
@@ -798,7 +589,7 @@ export function ReservationFormModal({
                         ⚡ Automatically Compiled with Active Reservation
                       </p>
                       <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                        Order #{matchingActiveReservation.orderNumber} · {matchingActiveReservation.items.length} previous item
+                        {matchingActiveReservation.items.length} previous item
                         {matchingActiveReservation.items.length === 1 ? "" : "s"} on file
                       </span>
                     </div>
@@ -845,28 +636,28 @@ export function ReservationFormModal({
                     <option
                       key={r.id}
                       value={r.fbName!}
-                      label={`Order #${r.orderNumber} · ${r.customerName} (${r.items.length} items)`}
+                      label={`Active reservation (${r.items.length} items)`}
                     />
                   ))}
               </datalist>
             </div>
 
             <div>
-              <Label htmlFor={`${baseId}-invoice-number`}>Invoice Number</Label>
-              <Input
-                id={`${baseId}-invoice-number`}
-                value={
-                  isCompiled
-                    ? `${values.invoiceNumber} (Compiling into existing record)`
-                    : mode === "create"
-                    ? "Auto-generated upon save"
-                    : values.invoiceNumber
+              <Label htmlFor={`${baseId}-type`}>Order Type</Label>
+              <select
+                id={`${baseId}-type`}
+                value={values.type}
+                onChange={(event) =>
+                  update("type", event.target.value as ReservationTypeOption)
                 }
-                readOnly
-                disabled
-                aria-readonly="true"
-                className={isCompiled ? "font-semibold text-pink-light" : undefined}
-              />
+                className={selectClass}
+              >
+                {RESERVATION_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <h3 className={`${sectionHeadingClass} mt-2`}>Shipping Information</h3>
@@ -886,7 +677,7 @@ export function ReservationFormModal({
                   <option
                     key={r.id}
                     value={r.customerName}
-                    label={`Order #${r.orderNumber} · ${r.fbName ? `@${r.fbName} · ` : ""}(${r.items.length} items)`}
+                    label={`${r.fbName ? `@${r.fbName} · ` : ""}(${r.items.length} items)`}
                   />
                 ))}
               </datalist>
@@ -989,95 +780,24 @@ export function ReservationFormModal({
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
-                      <div className="lg:col-span-3">
-                        <Label htmlFor={`item-source-${item.id}`}>Type</Label>
-                        <select
-                          id={`item-source-${item.id}`}
-                          value={item.itemSource}
-                          onChange={(e) => {
-                            const source = e.target.value as "moissanite" | "product";
-                            handleUpdateItem(index, "itemSource", source);
-                            handleUpdateItem(index, "selectedInventoryId", "");
-                            handleUpdateItem(index, "selectedProductId", "");
-                            handleUpdateItem(index, "itemCode", "");
-                            handleUpdateItem(index, "itemName", "");
-                            handleUpdateItem(index, "category", "");
-                            handleUpdateItem(index, "price", "");
-                          }}
-                          className={selectClass}
-                        >
-                          <option value="product">Jewelry</option>
-                          <option value="moissanite">Moissanite</option>
-                        </select>
-                      </div>
-
-                      {item.itemSource === "moissanite" ? (
-                        <div className="sm:col-span-2 lg:col-span-9">
-                          <Label htmlFor={`item-inventory-${item.id}`}>Moissanite Catalog Item</Label>
-                          <SearchableItemSelect
-                            id={`item-inventory-${item.id}`}
-                            value={item.selectedInventoryId}
-                            onChange={(invId) => handleSelectInventoryItem(index, invId)}
-                            disabled={inventoryLoading || Boolean(inventoryLoadError)}
-                            placeholder={
-                              inventoryLoading
-                                ? "Loading Moissanite…"
-                                : "Select from Moissanite catalog (or type details below)"
-                            }
-                            searchPlaceholder="Search Moissanite by SKU, description, or shape…"
-                            items={inventoryItems.map((inv) => ({
-                              id: inv.id,
-                              name: inv.description || inv.item_name,
-                              sku: inv.sku,
-                              category: inv.category?.name || "Moissanite",
-                              price: inv.selling_price,
-                              subtitle: inv.setting || undefined,
-                            }))}
-                          />
-                        </div>
-                      ) : (
-                        <div className="sm:col-span-2 lg:col-span-9">
-                          <Label htmlFor={`item-product-${item.id}`}>Jewelry Catalog Item</Label>
-                          <SearchableItemSelect
-                            id={`item-product-${item.id}`}
-                            value={item.selectedProductId || ""}
-                            onChange={(prodId) => handleSelectProductItem(index, prodId)}
-                            disabled={inventoryLoading}
-                            placeholder={
-                              inventoryLoading
-                                ? "Loading jewelry…"
-                                : "Select from Jewelry catalog (or type details below)"
-                            }
-                            searchPlaceholder="Search jewelry by name, SKU, or category…"
-                            items={productItems.map((prod) => ({
-                              id: prod.id,
-                              name: prod.name,
-                              sku: prod.sku,
-                              category: prod.category?.name || "Jewelry",
-                              price: prod.price,
-                            }))}
-                          />
-                        </div>
-                      )}
-
-                      <div className="sm:col-span-2 lg:col-span-5">
-                        <Label htmlFor={`item-name-${item.id}`}>Item Name</Label>
-                        <Input
-                          id={`item-name-${item.id}`}
-                          value={item.itemName}
-                          onChange={(e) => handleUpdateItem(index, "itemName", e.target.value)}
-                          placeholder="Item name / description"
-                          autoComplete="off"
-                        />
-                      </div>
-
                       <div className="lg:col-span-2">
-                        <Label htmlFor={`item-code-${item.id}`}>SKU / Code</Label>
+                        <Label htmlFor={`item-code-${item.id}`}>Code</Label>
                         <Input
                           id={`item-code-${item.id}`}
                           value={item.itemCode}
                           onChange={(e) => handleUpdateItem(index, "itemCode", e.target.value)}
                           placeholder="Optional"
+                          autoComplete="off"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2 lg:col-span-5">
+                        <Label htmlFor={`item-name-${item.id}`}>Item Description</Label>
+                        <Input
+                          id={`item-name-${item.id}`}
+                          value={item.itemName}
+                          onChange={(e) => handleUpdateItem(index, "itemName", e.target.value)}
+                          placeholder="e.g. 18k gold pearl necklace"
                           autoComplete="off"
                         />
                       </div>
@@ -1185,23 +905,6 @@ export function ReservationFormModal({
               </select>
             </div>
 
-            <div>
-              <Label htmlFor={`${baseId}-type`}>Reservation Type</Label>
-              <select
-                id={`${baseId}-type`}
-                value={values.type}
-                onChange={(event) =>
-                  update("type", event.target.value as ReservationTypeOption)
-                }
-                className={selectClass}
-              >
-                {RESERVATION_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           {/* Order Totals Summary */}

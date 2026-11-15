@@ -7,8 +7,8 @@ import {
   BadgeCheck,
   Ban,
   CheckCircle2,
+  ClipboardList,
   Eye,
-  FileText,
   MoreHorizontal,
   RotateCcw,
   Truck,
@@ -25,18 +25,19 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PaymentFormModal } from "@/components/orders/payment-form";
+import { BookOrderDialog } from "@/components/orders/book-order-dialog";
 
-export type StatusViewKind = "paid" | "shipped" | "claimed" | "cancelled" | "rto";
+export type StatusViewKind = "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto";
 
 export interface StatusManageRow {
   id: string;
-  invoiceNumber: string;
-  customerName: string;
   fbName: string;
   amount: number;
   totalPaid: number;
   balance: number;
   status: OrderStatus;
+  /** Needed before a booked order can be marked as shipped. */
+  trackingNumber?: string | null;
 }
 
 interface StatusManageMenuProps {
@@ -50,6 +51,8 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showRtoModal, setShowRtoModal] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [bookDialog, setBookDialog] = useState<{ again: boolean } | null>(null);
   const [rtoReason, setRtoReason] = useState("");
   const [rtoNotes, setRtoNotes] = useState("");
   const [rtoError, setRtoError] = useState<string | null>(null);
@@ -103,12 +106,25 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
   }
 
   const confirm = useConfirm();
+  const orderLabel = row.fbName && row.fbName !== "—" ? `${row.fbName}'s order` : "this order";
+
+  /** Opens the Book Order form (tracking no. is filled in right there). */
+  function handleBook(again = false) {
+    setOpen(false);
+    setActionError(null);
+    setBookDialog({ again });
+  }
 
   async function handleShip() {
     setOpen(false);
+    setActionError(null);
+    if (!row.trackingNumber?.trim()) {
+      setActionError("Add the tracking no. first, then mark as shipped.");
+      return;
+    }
     const ok = await confirm({
-      title: "Ship Order",
-      description: `Mark order ${row.invoiceNumber} as shipped?`,
+      title: "Mark as Shipped",
+      description: `Mark ${orderLabel} as shipped with tracking no. ${row.trackingNumber}?`,
       confirmLabel: "Mark as Shipped",
       variant: "primary",
     });
@@ -116,9 +132,17 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
 
     startTransition(async () => {
       try {
-        await shipSelectedOrders([row.id]);
+        const result = await shipSelectedOrders([row.id]);
+        if (result.succeeded.length === 0) {
+          const message = result.failed[0]?.message ?? "";
+          setActionError(
+            /tracking number/i.test(message)
+              ? "Add the tracking no. first, then mark as shipped."
+              : "Could not mark this order as shipped."
+          );
+        }
       } catch (err) {
-        console.error("Ship failed:", err);
+        setActionError(err instanceof Error ? err.message : "Could not mark this order as shipped.");
       }
     });
   }
@@ -127,7 +151,7 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     setOpen(false);
     const ok = await confirm({
       title: "Claim Order",
-      description: `Mark order ${row.invoiceNumber} as claimed?`,
+      description: `Mark ${orderLabel} as claimed?`,
       confirmLabel: "Mark as Claimed",
       variant: "primary",
     });
@@ -138,25 +162,6 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
         await claimSelectedOrders([row.id]);
       } catch (err) {
         console.error("Claim failed:", err);
-      }
-    });
-  }
-
-  async function handleReship() {
-    setOpen(false);
-    const ok = await confirm({
-      title: "Re-ship Order",
-      description: `Re-ship order ${row.invoiceNumber} back to Shipped status?`,
-      confirmLabel: "Re-ship Order",
-      variant: "primary",
-    });
-    if (!ok) return;
-
-    startTransition(async () => {
-      try {
-        await shipSelectedOrders([row.id]);
-      } catch (err) {
-        console.error("Re-ship failed:", err);
       }
     });
   }
@@ -182,7 +187,7 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     setOpen(false);
     const ok = await confirm({
       title: "Cancel Order",
-      description: `Are you sure you want to cancel order ${row.invoiceNumber}? This action cannot be undone.`,
+      description: `Are you sure you want to cancel ${orderLabel}? This action cannot be undone.`,
       confirmLabel: "Cancel Order",
       variant: "danger",
     });
@@ -201,7 +206,7 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     <div
       ref={menuRef}
       role="menu"
-      aria-label={`Manage order ${row.invoiceNumber}`}
+      aria-label={`Manage ${orderLabel}`}
       style={{ top: menuPos?.top, left: menuPos?.left }}
       className="fixed z-50 w-48 overflow-hidden rounded-lg border border-white/10 bg-background/95 py-1 shadow-2xl backdrop-blur-xl"
     >
@@ -215,23 +220,15 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
         View Order
       </Link>
 
-      <Link
-        role="menuitem"
-        href={`/orders/${row.id}/invoice`}
-        className={itemClass}
-        onClick={() => setOpen(false)}
-      >
-        <FileText className="h-4 w-4 text-muted" aria-hidden />
-        View Invoice
-      </Link>
-
       {/* Status Specific Action Buttons inside Manage Menu */}
       {kind === "paid" ? (
         <>
-          <button role="menuitem" type="button" className={itemClass} onClick={handleShip}>
-            <Truck className="h-4 w-4 text-muted" aria-hidden />
-            Ship Order
+          <button role="menuitem" type="button" className={itemClass} onClick={() => handleBook()}>
+            <ClipboardList className="h-4 w-4 text-muted" aria-hidden />
+            Book Order
           </button>
+          {/* RTO only applies to fully paid orders; downpayment-only reservations can be cancelled instead. */}
+          {row.status === "paid" ? (
           <button
             role="menuitem"
             type="button"
@@ -244,7 +241,15 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
             <RotateCcw className="h-4 w-4 text-muted" aria-hidden />
             Move to RTO
           </button>
+          ) : null}
         </>
+      ) : null}
+
+      {kind === "booked" ? (
+        <button role="menuitem" type="button" className={itemClass} onClick={handleShip}>
+          <Truck className="h-4 w-4 text-muted" aria-hidden />
+          Mark as Shipped
+        </button>
       ) : null}
 
       {kind === "shipped" ? (
@@ -269,9 +274,9 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
       ) : null}
 
       {kind === "rto" ? (
-        <button role="menuitem" type="button" className={itemClass} onClick={handleReship}>
-          <Truck className="h-4 w-4 text-muted" aria-hidden />
-          Re-ship Order
+        <button role="menuitem" type="button" className={itemClass} onClick={() => handleBook(true)}>
+          <ClipboardList className="h-4 w-4 text-muted" aria-hidden />
+          Book Again
         </button>
       ) : null}
 
@@ -308,8 +313,6 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
     <PaymentFormModal
       reservation={{
         id: row.id,
-        invoiceNumber: row.invoiceNumber,
-        customerName: row.customerName,
         fbName: row.fbName,
         amount: row.amount,
         totalPaid: row.totalPaid,
@@ -332,7 +335,7 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
         <header className="flex items-start justify-between border-b border-white/[0.07] px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pink-light">
-              {row.invoiceNumber}
+              {row.fbName}
             </p>
             <h2 id="status-rto-dialog-title" className="mt-1 text-lg font-semibold text-foreground">
               Mark as Return to Origin
@@ -414,7 +417,7 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
   ) : null;
 
   return (
-    <>
+    <span className="inline-flex flex-col items-end gap-1">
       <Button
         ref={buttonRef}
         size="sm"
@@ -425,11 +428,24 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
         onClick={handleToggle}
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />
-        Manage
+        <span className="hidden xl:inline">Manage</span>
       </Button>
       {open && menuPos ? createPortal(menuContent, document.body) : null}
       {paymentModal}
       {rtoModal}
-    </>
+      {bookDialog ? (
+        <BookOrderDialog
+          orderId={row.id}
+          orderLabel={orderLabel}
+          again={bookDialog.again}
+          onClose={() => setBookDialog(null)}
+        />
+      ) : null}
+      {actionError ? (
+        <span role="alert" className="max-w-[12rem] whitespace-normal text-right text-[11px] text-danger">
+          {actionError}
+        </span>
+      ) : null}
+    </span>
   );
 }

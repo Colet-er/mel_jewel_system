@@ -196,7 +196,7 @@ describe("mapRpcError", () => {
 
   it("maps unique constraint errors", () => {
     expect(mapRpcError(new Error("duplicate key value violates unique constraint orders_order_number_key"))).toBe(
-      "Invoice number is already in use. Please try again."
+      "This reservation clashes with an existing record. Please try again."
     );
     expect(mapRpcError(new Error("duplicate key value violates unique constraint customers_name_key"))).toBe(
       "A customer with this name already exists."

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ReservationInput, ReservationLineItemInput } from "@/types";
 import { validateReservationInput, round2, mapRpcError } from "@/lib/utils/reservation-validation";
+import { isDeliveryStatus } from "@/lib/utils/delivery-status";
 import {
   PAYMENT_EVIDENCE_BUCKET,
   calculatePaymentBalance,
@@ -27,7 +28,6 @@ export type PaymentFormResult =
       totalPaid: number;
       remainingBalance: number;
       fullyPaid: boolean;
-      shipped?: boolean;
       evidenceCount: number;
     }
   | { ok: false; message: string; paymentRecorded?: boolean };
@@ -206,20 +206,101 @@ export async function recordReservationPayment(
     }
   }
 
-  const isShipped = order.status === "reserved" && method === "COD" && amount === 0;
 
   revalidateReservationPaths();
   if (payment.fully_paid) revalidatePath("/orders/paid");
-  if (isShipped) revalidatePath("/orders/shipped");
 
   return {
     ok: true,
     totalPaid: Number(payment.total_paid),
     remainingBalance: Number(payment.remaining_balance),
     fullyPaid: payment.fully_paid,
-    shipped: isShipped,
     evidenceCount: uploadedPaths.length,
   };
+}
+
+export type PaymentChangeResult =
+  | { ok: true; totalPaid: number; remainingBalance: number }
+  | { ok: false; message: string };
+
+function paymentChangeErrorMessage(error: { code?: string; message?: string } | null): string {
+  const message = error?.message ?? "";
+  if (error?.code === "42501" || /row-level security|not authorized/i.test(message)) {
+    return "You are not authorized to change payments.";
+  }
+  if (/cancelled orders/i.test(message)) return "Payments cannot be changed on cancelled orders.";
+  if (/Payment not found/i.test(message)) return "This payment no longer exists. Refresh and try again.";
+  if (/exceed.*remaining balance/i.test(message)) {
+    return "The new amount would make total payments exceed the order total.";
+  }
+  if (/payment method/i.test(message)) return "Select a valid payment method.";
+  if (/function .* does not exist|could not find the function/i.test(message)) {
+    return "Payment editing is not set up in the database yet. Apply migration 0027 first.";
+  }
+  return "Could not update the payment. Please try again.";
+}
+
+/** Corrects the amount, method, reference, or notes of one recorded payment. */
+export async function updateReservationPayment(
+  paymentId: string,
+  input: { amount: number; method: string; referenceNumber?: string; notes?: string }
+): Promise<PaymentChangeResult> {
+  if (!UUID_PATTERN.test(paymentId)) return { ok: false, message: "Invalid payment id." };
+
+  const amount = roundPaymentAmount(Number(input.amount));
+  const method = String(input.method ?? "").trim();
+  if (!Number.isFinite(amount) || amount < 0) {
+    return { ok: false, message: "Payment amount cannot be negative." };
+  }
+  if (!method) return { ok: false, message: "Select a payment method." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("update_order_payment", {
+    p_payment_id: paymentId,
+    p_amount: amount,
+    p_payment_method: method,
+    p_reference_number: input.referenceNumber?.trim() || null,
+    p_notes: input.notes?.trim() || null,
+  });
+
+  if (error || !data?.[0]) return { ok: false, message: paymentChangeErrorMessage(error) };
+
+  const row = data[0] as { order_id: string; total_paid: number; remaining_balance: number };
+  revalidateReservationPaths();
+  revalidatePath(`/orders/${row.order_id}`);
+  return { ok: true, totalPaid: Number(row.total_paid), remainingBalance: Number(row.remaining_balance) };
+}
+
+/** Deletes one recorded payment and its uploaded proof-of-payment images. */
+export async function deleteReservationPayment(paymentId: string): Promise<PaymentChangeResult> {
+  if (!UUID_PATTERN.test(paymentId)) return { ok: false, message: "Invalid payment id." };
+
+  const supabase = await createClient();
+
+  // Collect evidence file paths before the cascade removes their metadata rows.
+  const { data: evidenceRows } = await supabase
+    .from("payment_evidence")
+    .select("storage_path")
+    .eq("payment_id", paymentId);
+
+  const { data, error } = await supabase.rpc("delete_order_payment", { p_payment_id: paymentId });
+  if (error || !data?.[0]) {
+    return {
+      ok: false,
+      message: paymentChangeErrorMessage(error).replace("update the payment", "delete the payment"),
+    };
+  }
+
+  const paths = (evidenceRows ?? []).map((row) => row.storage_path as string).filter(Boolean);
+  if (paths.length > 0) {
+    // Best effort: the ledger row is already gone, so a storage hiccup only leaves an orphaned file.
+    await supabase.storage.from(PAYMENT_EVIDENCE_BUCKET).remove(paths);
+  }
+
+  const row = data[0] as { order_id: string; total_paid: number; remaining_balance: number };
+  revalidateReservationPaths();
+  revalidatePath(`/orders/${row.order_id}`);
+  return { ok: true, totalPaid: Number(row.total_paid), remainingBalance: Number(row.remaining_balance) };
 }
 
 /**
@@ -259,6 +340,7 @@ export async function archiveSelectedOrders(rawIds: string[]): Promise<BulkActio
 function revalidateReservationPaths() {
   revalidatePath("/orders/reserved");
   revalidatePath("/orders/paid");
+  revalidatePath("/orders/booking");
   revalidatePath("/orders/shipped");
   revalidatePath("/orders/claimed");
   revalidatePath("/orders");
@@ -342,6 +424,43 @@ export async function createReservation(
       message: mapRpcError(error),
     };
   }
+}
+
+export interface ImportReservationsResult {
+  created: number;
+  failed: { fbName: string; message: string }[];
+}
+
+/**
+ * Creates one reservation per parsed CSV group. Each input is re-validated on
+ * the server by createReservation, so a tampered client payload cannot bypass
+ * the normal checks. Runs sequentially so one bad row never blocks the rest.
+ */
+export async function importReservations(
+  inputs: ReservationInput[]
+): Promise<ImportReservationsResult> {
+  const MAX = 200;
+  const list = Array.isArray(inputs) ? inputs.slice(0, MAX) : [];
+  const failed: ImportReservationsResult["failed"] = [];
+  let created = 0;
+
+  for (const raw of list) {
+    // Never let an import target an existing order.
+    const input: ReservationInput = { ...raw, compileTargetOrderId: undefined, invoiceNumber: undefined };
+    const fbName = input.fbName?.trim() || input.customerName?.trim() || "Unnamed";
+    const result = await createReservation(input);
+    if (result.ok) {
+      created += 1;
+    } else {
+      failed.push({ fbName, message: result.message });
+    }
+  }
+
+  if (Array.isArray(inputs) && inputs.length > MAX) {
+    failed.push({ fbName: "—", message: `Only the first ${MAX} reservations were imported.` });
+  }
+
+  return { created, failed };
 }
 
 export async function updateReservation(
@@ -441,6 +560,10 @@ export async function cancelSelectedOrders(
 
   if (succeeded.length > 0) {
     revalidatePath("/orders/reserved");
+    revalidatePath("/orders/paid");
+    revalidatePath("/orders/booking");
+    revalidatePath("/orders/shipped");
+    revalidatePath("/orders/rto");
     revalidatePath("/orders/cancelled");
     revalidatePath("/dashboard");
   }
@@ -449,8 +572,151 @@ export async function cancelSelectedOrders(
 }
 
 /**
- * Marks each selected paid order as shipped through the mark_order_shipped
- * RPC, which stamps shipped_at and writes status history.
+ * Moves each selected paid / reserved / RTO order to the Booking stage via the
+ * mark_order_booked RPC (stamps booked_at and writes status history).
+ */
+export async function bookSelectedOrders(rawIds: string[]): Promise<BulkActionResult> {
+  const ids = sanitizeIds(rawIds);
+  const supabase = await createClient();
+
+  const succeeded: string[] = [];
+  const failed: { id: string; message: string }[] = [];
+
+  for (const id of ids) {
+    const { error } = await supabase.rpc("mark_order_booked", { p_order_id: id });
+    if (error) {
+      failed.push({ id, message: error.message });
+    } else {
+      succeeded.push(id);
+    }
+  }
+
+  if (succeeded.length > 0) {
+    revalidatePath("/orders/reserved");
+    revalidatePath("/orders/paid");
+    revalidatePath("/orders/booking");
+    revalidatePath("/orders/rto");
+    revalidatePath("/dashboard");
+  }
+
+  return { succeeded, failed };
+}
+
+export type BookWithTrackingResult =
+  | { ok: true; trackingSaved: boolean; message: string }
+  | { ok: false; message: string };
+
+/**
+ * Books one order and, when given, saves its tracking number in the same
+ * request (used by the "Book Order" form on the Paid page).
+ */
+export async function bookOrderWithTracking(
+  orderId: string,
+  rawTrackingNumber: string
+): Promise<BookWithTrackingResult> {
+  if (!UUID_PATTERN.test(orderId)) return { ok: false, message: "Invalid order id." };
+  const trackingNumber = rawTrackingNumber.trim();
+  if (trackingNumber.length > 100) {
+    return { ok: false, message: "Tracking number must be 100 characters or fewer." };
+  }
+
+  const booked = await bookSelectedOrders([orderId]);
+  if (booked.succeeded.length === 0) {
+    const message = booked.failed[0]?.message ?? "";
+    if (/function .* does not exist|could not find the function/i.test(message)) {
+      return { ok: false, message: "Booking is not set up in the database yet. Apply migration 0028 first." };
+    }
+    if (/downpayment is required/i.test(message)) {
+      return { ok: false, message: "Record at least a downpayment before booking this order." };
+    }
+    if (/not authorized/i.test(message)) return { ok: false, message: "You are not authorized to book orders." };
+    return { ok: false, message: "Could not book this order. It may have changed; refresh and try again." };
+  }
+
+  if (!trackingNumber) {
+    return { ok: true, trackingSaved: false, message: "Order booked. Add the tracking no. on the Booking page." };
+  }
+
+  const saved = await setOrderTrackingNumber(orderId, trackingNumber);
+  return saved.ok
+    ? { ok: true, trackingSaved: true, message: `Order booked with tracking no. ${trackingNumber}.` }
+    : { ok: true, trackingSaved: false, message: `Order booked, but the tracking no. was not saved: ${saved.message}` };
+}
+
+/** Sets (or clears) the delivery-status chip on an order. */
+export async function setOrderDeliveryStatus(
+  orderId: string,
+  rawStatus: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!UUID_PATTERN.test(orderId)) return { ok: false, message: "Invalid order id." };
+  const status = rawStatus.trim();
+  if (status && !isDeliveryStatus(status)) return { ok: false, message: "Invalid status." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_order_delivery_status", {
+    p_order_id: orderId,
+    p_delivery_status: status || null,
+  });
+  if (error) {
+    const message = error.message ?? "";
+    if (error.code === "42501" || /not authorized/i.test(message)) {
+      return { ok: false, message: "You are not authorized to change the status." };
+    }
+    if (/function .* does not exist|could not find the function/i.test(message)) {
+      return { ok: false, message: "Apply migration 0030 to enable delivery statuses." };
+    }
+    return { ok: false, message: "Could not update the status. Please try again." };
+  }
+
+  revalidatePath("/orders/booking");
+  revalidatePath("/orders/shipped");
+  revalidatePath("/orders/claimed");
+  revalidatePath("/orders/rto");
+  revalidatePath("/orders/cancelled");
+  return { ok: true };
+}
+
+export type TrackingNumberResult = { ok: true; trackingNumber: string | null } | { ok: false; message: string };
+
+/** Saves (or clears) the courier tracking number on a booked/shipped order. */
+export async function setOrderTrackingNumber(
+  orderId: string,
+  rawTrackingNumber: string
+): Promise<TrackingNumberResult> {
+  if (!UUID_PATTERN.test(orderId)) return { ok: false, message: "Invalid order id." };
+  const trackingNumber = rawTrackingNumber.trim();
+  if (trackingNumber.length > 100) {
+    return { ok: false, message: "Tracking number must be 100 characters or fewer." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_order_tracking_number", {
+    p_order_id: orderId,
+    p_tracking_number: trackingNumber || null,
+  });
+
+  if (error) {
+    const message = error.message ?? "";
+    if (error.code === "42501" || /not authorized/i.test(message)) {
+      return { ok: false, message: "You are not authorized to update tracking numbers." };
+    }
+    if (/only be set on booked or shipped/i.test(message)) {
+      return { ok: false, message: "Tracking numbers can only be set on booked or shipped orders." };
+    }
+    if (/function .* does not exist|could not find the function/i.test(message)) {
+      return { ok: false, message: "Booking is not set up in the database yet. Apply migration 0028 first." };
+    }
+    return { ok: false, message: "Could not save the tracking number. Please try again." };
+  }
+
+  revalidatePath("/orders/booking");
+  revalidatePath("/orders/shipped");
+  return { ok: true, trackingNumber: trackingNumber || null };
+}
+
+/**
+ * Marks each selected BOOKED order as shipped through the mark_order_shipped
+ * RPC, which requires a tracking number, stamps shipped_at and writes history.
  */
 export async function shipSelectedOrders(rawIds: string[]): Promise<BulkActionResult> {
   const ids = sanitizeIds(rawIds);
@@ -471,6 +737,7 @@ export async function shipSelectedOrders(rawIds: string[]): Promise<BulkActionRe
   if (succeeded.length > 0) {
     revalidatePath("/orders/reserved");
     revalidatePath("/orders/paid");
+    revalidatePath("/orders/booking");
     revalidatePath("/orders/shipped");
     revalidatePath("/orders/rto");
     revalidatePath("/dashboard");

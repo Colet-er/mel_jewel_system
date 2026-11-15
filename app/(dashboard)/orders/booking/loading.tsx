@@ -1,5 +1,5 @@
 import { PageLoading } from "@/components/layout/page-loading";
 
 export default function Loading() {
-  return <PageLoading title="Sold Moissanite" />;
+  return <PageLoading title="Booking" withStats={false} />;
 }

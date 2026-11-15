@@ -2,28 +2,24 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import { CheckCircle2, Clock, Eye, MoreHorizontal, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   updateCommissionStatus,
   deleteCommissionRecord,
 } from "@/app/(dashboard)/commission/actions";
-import { buttonVariants } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface CommissionActionMenuProps {
   id: string;
   status: "paid" | "unpaid";
-  relatedOrderId: string | null;
-  customerName: string;
+  fbName: string;
   workerName: string;
 }
 
 export function CommissionActionMenu({
   id,
   status,
-  relatedOrderId,
-  customerName,
+  fbName,
   workerName,
 }: CommissionActionMenuProps) {
   const confirm = useConfirm();
@@ -88,7 +84,7 @@ export function CommissionActionMenu({
     setOpen(false);
     const ok = await confirm({
       title: "Delete Commission Record",
-      description: `Delete assistance record for ${workerName} (${customerName})? This cannot be undone.`,
+      description: `Delete assistance record for ${workerName} (${fbName})? This cannot be undone.`,
       confirmLabel: "Delete Record",
       variant: "danger",
     });
@@ -101,16 +97,6 @@ export function CommissionActionMenu({
 
   return (
     <div className="flex items-center justify-end gap-2">
-      {relatedOrderId ? (
-        <Link
-          href={`/orders/${relatedOrderId}/invoice`}
-          className={buttonVariants({ variant: "secondary", size: "sm" })}
-        >
-          <Eye className="h-4 w-4" aria-hidden />
-          View Invoice
-        </Link>
-      ) : null}
-
       <div className="relative">
         <button
           ref={buttonRef}

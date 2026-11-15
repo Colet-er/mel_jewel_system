@@ -2,33 +2,31 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import {
   Archive,
   BadgeCheck,
   Ban,
-  Eye,
   MoreHorizontal,
   Pencil,
-  Truck,
   X,
 } from "lucide-react";
 import type { OrderStatus, ReservationType } from "@/types";
 import {
   archiveSelectedOrders,
   cancelSelectedOrders,
-  shipSelectedOrders,
   type BulkActionResult,
 } from "@/app/(dashboard)/orders/reserved/actions";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
+import { Button } from "@/components/ui/button";
+import { SortHeaderButton } from "@/components/ui/sort-header";
+import { sortRows, type SortDir } from "@/lib/utils/sort";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ReservationFormModal,
   type ReservationFormValues,
 } from "@/components/orders/reservation-form";
 import { PaymentFormModal } from "@/components/orders/payment-form";
+import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
 
 export interface ReservedRowItem {
   id: string;
@@ -76,6 +74,8 @@ interface ReservedItemsTableProps {
   empty: React.ReactNode;
 }
 
+type ReservedSortKey = "createdAt" | "fbName" | "itemName";
+
 const checkboxClass =
   "h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-white/20 bg-background/60 transition-colors checked:border-primary checked:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
@@ -86,8 +86,6 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
   const formItems = (row.items && row.items.length > 0)
     ? row.items.map((it, idx) => ({
         id: it.id || `row-item-${idx}`,
-        itemSource: (it.sku?.toUpperCase().startsWith("MOISS") || it.category?.toLowerCase() === "moissanite" ? "moissanite" : "product") as "moissanite" | "product",
-        selectedInventoryId: "",
         itemCode: it.sku ?? "",
         itemName: it.name,
         category: it.category ?? "",
@@ -97,8 +95,6 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
     : [
         {
           id: "row-item-1",
-          itemSource: (row.itemCode?.toUpperCase().startsWith("MOISS") || row.category?.toLowerCase() === "moissanite" ? "moissanite" : "product") as "moissanite" | "product",
-          selectedInventoryId: "",
           itemCode: row.itemCode ?? "",
           itemName: row.itemName === "—" ? "" : row.itemName,
           category: row.category ?? "",
@@ -144,10 +140,25 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
     }
   }, [someSelected]);
 
-  const visibleRows = useMemo(
-    () => rows.map((row) => ({ row, isSelected: selected.has(row.id) })),
-    [rows, selected]
-  );
+  const [sort, setSort] = useState<{ key: ReservedSortKey; dir: SortDir }>({ key: "fbName", dir: "asc" });
+
+  const visibleRows = useMemo(() => {
+    const accessor =
+      sort.key === "createdAt"
+        ? (row: ReservedItemRow) => row.createdAt
+        : sort.key === "itemName"
+          ? (row: ReservedItemRow) => row.itemName
+          : (row: ReservedItemRow) => row.fbName;
+    return sortRows(rows, accessor, sort.dir).map((row) => ({ row, isSelected: selected.has(row.id) }));
+  }, [rows, selected, sort]);
+
+  function toggleSort(key: ReservedSortKey) {
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "createdAt" ? "desc" : "asc" }
+    );
+  }
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(rows.map((row) => row.id)));
@@ -208,6 +219,18 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
     if (row) setPaymentRow(row);
   }
 
+  function handleCancelSelected() {
+    runBulkAction(
+      "Cancel Reservations",
+      `Cancel {count} reservation(s)? This cannot be undone.`,
+      (ids) => cancelSelectedOrders(ids),
+      (result) =>
+        `Cancelled ${result.succeeded.length} reservation(s).` +
+        (result.failed.length > 0 ? ` ${result.failed.length} could not be cancelled.` : ""),
+      "danger"
+    );
+  }
+
   function handleDelete() {
     runBulkAction(
       "Archive Reservations",
@@ -219,20 +242,6 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
           ? ` ${result.failed.length} skipped (not permitted or already archived).`
           : ""),
       "danger"
-    );
-  }
-
-  function handleShip() {
-    runBulkAction(
-      "Ship Reservations",
-      `Mark {count} reservation(s) as shipped?`,
-      shipSelectedOrders,
-      (result) =>
-        `Shipped ${result.succeeded.length} order(s).` +
-        (result.failed.length > 0
-          ? ` ${result.failed.length} failed.`
-          : ""),
-      "primary"
     );
   }
 
@@ -255,13 +264,13 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
           <span className="text-sm text-muted">
             {selected.size} selected
           </span>
-          <Button size="sm" onClick={handleShip} disabled={isPending}>
-            <Truck className="h-4 w-4" aria-hidden />
-            Ship Selected
-          </Button>
           <Button size="sm" variant="secondary" onClick={handleRecordPayment} disabled={isPending}>
             <BadgeCheck className="h-4 w-4" aria-hidden />
             Record Payment
+          </Button>
+          <Button size="sm" variant="danger" onClick={handleCancelSelected} disabled={isPending}>
+            <Ban className="h-4 w-4" aria-hidden />
+            Cancel Selected
           </Button>
           <Button size="sm" variant="danger" onClick={handleDelete} disabled={isPending}>
             <Archive className="h-4 w-4" aria-hidden />
@@ -301,11 +310,11 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
       {rows.length === 0 ? (
         <>{empty}</>
       ) : (
-        <div className="w-full overflow-x-auto rounded-b-2xl [scrollbar-gutter:stable]">
-          <table className="w-full min-w-full text-left text-xs sm:text-sm">
+        <div className="w-full rounded-b-2xl">
+          <table className="w-full text-left text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-white/[0.07] bg-white/[0.025]">
-                <th scope="col" className="sticky left-0 z-20 w-12 min-w-12 max-w-12 bg-elevated px-3 py-3 sm:px-4">
+                <th scope="col" className="w-10 px-2.5 py-3 sm:px-3">
                   <input
                     ref={headerCheckboxRef}
                     type="checkbox"
@@ -315,22 +324,20 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                     className={checkboxClass}
                   />
                 </th>
-                <th scope="col" className="sticky left-12 z-20 w-28 min-w-28 max-w-28 bg-elevated px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4 whitespace-nowrap">
-                  Reserve Date
+                <th scope="col" className={`${headerCellClass} whitespace-nowrap`} aria-sort={sort.key === "createdAt" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                  <SortHeaderButton label="Reserve Date" active={sort.key === "createdAt"} dir={sort.dir} onSort={() => toggleSort("createdAt")} />
                 </th>
-                <th scope="col" className="sticky left-[160px] z-20 w-32 min-w-32 max-w-32 bg-elevated px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4 whitespace-nowrap">
-                  Invoice No.
+                <th scope="col" className={headerCellClass} aria-sort={sort.key === "fbName" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                  <SortHeaderButton label="FB Name" active={sort.key === "fbName"} dir={sort.dir} onSort={() => toggleSort("fbName")} />
                 </th>
-                <th scope="col" className="sticky left-[288px] z-20 w-36 min-w-36 max-w-36 bg-elevated px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3.5 xl:px-4 whitespace-nowrap">
-                  FB Name
+                <th scope="col" className={headerCellClass} aria-sort={sort.key === "itemName" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+                  <SortHeaderButton label="Item" active={sort.key === "itemName"} dir={sort.dir} onSort={() => toggleSort("itemName")} />
                 </th>
-                <th scope="col" className={headerCellClass}>Customer Name</th>
-                <th scope="col" className={headerCellClass}>Item</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Qty</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Amount</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>DP</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Balance</th>
-                <th scope="col" className={headerCellClass}>Status</th>
+                <th scope="col" className={`${headerCellClass} whitespace-nowrap`}>Order Type</th>
                 <th scope="col" className={`${headerCellClass} text-right`}>Action</th>
               </tr>
             </thead>
@@ -342,62 +349,47 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
                     isSelected ? "bg-primary/5" : ""
                   }`}
                 >
-                  <td className="sticky left-0 z-10 w-12 min-w-12 max-w-12 bg-card px-3 py-3 sm:px-4 sm:py-3.5">
+                  <td className="px-2.5 py-3 sm:px-3 sm:py-3.5">
                     <input
                       type="checkbox"
-                      aria-label={`Select reservation ${row.invoiceNumber}`}
+                      aria-label={`Select reservation for ${row.fbName}`}
                       checked={isSelected}
                       onChange={() => toggleOne(row.id)}
                       className={checkboxClass}
                     />
                   </td>
-                  <td className="sticky left-12 z-10 w-28 min-w-28 max-w-28 bg-card whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
                     {formatDate(row.createdAt)}
                   </td>
-                  <td className="sticky left-[160px] z-10 w-32 min-w-32 max-w-32 bg-card whitespace-nowrap px-2.5 py-3 font-medium text-pink-light sm:px-3.5 sm:py-3.5 xl:px-4">
-                    {row.invoiceNumber}
-                  </td>
-                  <td className="sticky left-[288px] z-10 w-36 min-w-36 max-w-36 bg-card px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <div className="max-w-[120px] lg:max-w-[140px] truncate text-muted" title={row.fbName}>
-                      {row.fbName}
-                    </div>
+                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    <FbNameInvoiceLink orderId={row.id} fbName={row.fbName} />
                   </td>
                   <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <div className="max-w-[120px] lg:max-w-[160px] truncate" title={row.customerName}>{row.customerName}</div>
-                  </td>
-                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <div className="max-w-[140px] lg:max-w-[200px] truncate" title={row.itemName}>{row.itemName}</div>
+                    <div className="min-w-[6rem] break-words">{row.itemName}</div>
                   </td>
                   <td className="px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{row.qty.toLocaleString("en-US")}</td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.amount)}</td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.dpPaid)}</td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.balance)}</td>
-                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4"><StatusBadge status={row.status} /></td>
+                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
+                    {formatReservationType(row.type)}
+                  </td>
                   <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <div className="inline-flex items-center justify-end gap-2">
-                      <Link
-                        href={`/orders/${row.id}/invoice`}
-                        className={buttonVariants({ variant: "secondary", size: "sm" })}
-                      >
-                        <Eye className="h-4 w-4" aria-hidden />
-                        View Invoice
-                      </Link>
-                      <ManageMenu
-                        row={row}
-                        disabled={isPending}
-                        onNotice={setNotice}
-                      />
-                    </div>
+                    <ManageMenu
+                      row={row}
+                      disabled={isPending}
+                      onNotice={setNotice}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t border-white/[0.07] bg-white/[0.02] text-sm font-semibold">
-                <td colSpan={4} className="sticky left-0 z-10 bg-card px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                <td colSpan={2} className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-muted">
                   Total Reserve: <span className="font-bold text-foreground ml-1">{summary.totalReserve.toLocaleString("en-US")}</span>
                 </td>
-                <td colSpan={2} className="px-4 py-3 text-xs uppercase tracking-wider text-muted">
+                <td colSpan={2} className="px-3 py-3 text-right text-xs uppercase tracking-wider text-muted">
                   Amount to Pay
                 </td>
                 <td className="px-3 py-3 xl:px-4">{formatCurrency(summary.amountToPay)}</td>
@@ -474,6 +466,7 @@ function ManageMenu({
   }
 
   const confirm = useConfirm();
+  const orderLabel = row.fbName && row.fbName !== "—" ? `${row.fbName}'s reservation` : "this reservation";
 
   function handleEdit() {
     setOpen(false);
@@ -485,33 +478,18 @@ function ManageMenu({
     setShowPaymentModal(true);
   }
 
-  async function handleShip() {
-    setOpen(false);
-    const ok = await confirm({
-      title: "Ship Reservation",
-      description: `Mark reservation ${row.invoiceNumber} as shipped?`,
-      confirmLabel: "Mark as Shipped",
-      variant: "primary",
-    });
-    if (!ok) return;
-
-    shipSelectedOrders([row.id])
-      .then(() => onNotice?.(`Reservation ${row.invoiceNumber} marked as shipped.`))
-      .catch((err) => console.error("Ship failed:", err));
-  }
-
   async function handleCancel() {
     setOpen(false);
     const ok = await confirm({
       title: "Cancel Reservation",
-      description: `Are you sure you want to cancel reservation ${row.invoiceNumber}? This action cannot be undone.`,
+      description: `Are you sure you want to cancel ${orderLabel}? This action cannot be undone.`,
       confirmLabel: "Cancel Reservation",
       variant: "danger",
     });
     if (!ok) return;
 
     cancelSelectedOrders([row.id])
-      .then(() => onNotice?.(`Reservation ${row.invoiceNumber} has been cancelled.`))
+      .then(() => onNotice?.(`${orderLabel.charAt(0).toUpperCase()}${orderLabel.slice(1)} has been cancelled.`))
       .catch((err) => console.error("Cancel failed:", err));
   }
 
@@ -519,7 +497,7 @@ function ManageMenu({
     <div
       ref={menuRef}
       role="menu"
-      aria-label={`Manage reservation ${row.invoiceNumber}`}
+      aria-label={`Manage ${orderLabel}`}
       style={{ top: menuPos?.top, left: menuPos?.left }}
       className="fixed z-50 w-44 overflow-hidden rounded-lg border border-white/10 bg-background/95 py-1 shadow-2xl backdrop-blur-xl"
     >
@@ -528,10 +506,6 @@ function ManageMenu({
           <button role="menuitem" type="button" className={itemClass} onClick={handleEdit}>
             <Pencil className="h-4 w-4 text-muted" aria-hidden />
             Edit
-          </button>
-          <button role="menuitem" type="button" className={itemClass} onClick={handleShip}>
-            <Truck className="h-4 w-4 text-muted" aria-hidden />
-            Ship Order
           </button>
           <button role="menuitem" type="button" className={itemClass} onClick={handlePayment}>
             <BadgeCheck className="h-4 w-4 text-muted" aria-hidden />
@@ -548,10 +522,6 @@ function ManageMenu({
           </button>
         </>
       ) : null}
-      <Link role="menuitem" href={`/orders/${row.id}/invoice`} className={itemClass} onClick={() => setOpen(false)}>
-        <Eye className="h-4 w-4 text-muted" aria-hidden />
-        View Invoice
-      </Link>
     </div>
   );
 
@@ -570,8 +540,6 @@ function ManageMenu({
     <PaymentFormModal
       reservation={{
         id: row.id,
-        invoiceNumber: row.invoiceNumber,
-        customerName: row.customerName,
         fbName: row.fbName,
         amount: row.amount,
         totalPaid: row.totalPaid,
@@ -598,7 +566,7 @@ function ManageMenu({
         onClick={handleToggle}
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />
-        Manage
+        <span className="hidden xl:inline">Manage</span>
       </Button>
       {open && menuPos ? createPortal(menuContent, document.body) : null}
       {editModal}

@@ -22,6 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Reserved", href: "/orders/reserved", icon: "clock" },
       { label: "Paid", href: "/orders/paid", icon: "badge-check" },
+      { label: "Booking", href: "/orders/booking", icon: "clipboard-list" },
       { label: "Shipped", href: "/orders/shipped", icon: "truck" },
       { label: "Claimed", href: "/orders/claimed", icon: "check-circle-2" },
       { label: "Cancelled", href: "/orders/cancelled", icon: "x-circle" },
@@ -33,7 +34,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Products", href: "/products", icon: "package" },
       { label: "Categories", href: "/categories", icon: "tags" },
-      { label: "Sold Moissanite", href: "/moissanite/sold", icon: "shopping-bag" },
     ],
   },
   {

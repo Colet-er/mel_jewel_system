@@ -1,5 +1,5 @@
 import { PageLoading } from "@/components/layout/page-loading";
 
 export default function Loading() {
-  return <PageLoading title="Moissanite-SKU" />;
+  return <PageLoading title="Products" />;
 }

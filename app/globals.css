@@ -17,12 +17,14 @@
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-serif: Arial, Helvetica, sans-serif;
+  --font-mono: Arial, Helvetica, sans-serif;
 }
 
 body {
   min-height: 100vh;
+  font-family: var(--font-sans);
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-synthesis: none;
@@ -128,5 +130,18 @@ a:focus-visible {
 
   .invoice-actions {
     display: none !important;
+  }
+
+  /* When printing from the floating invoice modal, let the invoice flow on the page. */
+  .invoice-modal,
+  .invoice-modal-panel {
+    position: static !important;
+    overflow: visible !important;
+    max-height: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
   }
 }

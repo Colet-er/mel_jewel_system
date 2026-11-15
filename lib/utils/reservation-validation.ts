@@ -114,7 +114,7 @@ export function mapRpcError(error: unknown): string {
     return message.replace(/^.*P0001:\s*/, "");
   }
   if (message.includes("duplicate key") || message.includes("unique constraint")) {
-    if (message.includes("order_number")) return "Invoice number is already in use. Please try again.";
+    if (message.includes("order_number")) return "This reservation clashes with an existing record. Please try again.";
     if (message.includes("customers")) return "A customer with this name already exists.";
     if (message.includes("products")) return "An item with this code already exists.";
     return "A record with this value already exists.";

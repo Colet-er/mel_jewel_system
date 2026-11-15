@@ -9,10 +9,10 @@ import { Input, Label } from "@/components/ui/input";
 
 export function RtoOrderButton({
   orderId,
-  invoiceNumber,
+  fbName,
 }: {
   orderId: string;
-  invoiceNumber: string;
+  fbName: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -62,7 +62,7 @@ export function RtoOrderButton({
             <header className="flex items-start justify-between border-b border-white/[0.07] px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-pink-light">
-                  {invoiceNumber}
+                  {fbName}
                 </p>
                 <h2 id="rto-dialog-title" className="mt-1 text-lg font-semibold text-foreground">
                   Mark as Return to Origin

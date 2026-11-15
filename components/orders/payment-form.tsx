@@ -2,14 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, X } from "lucide-react";
+import { X } from "lucide-react";
 import { recordReservationPayment } from "@/app/(dashboard)/orders/reserved/actions";
-import {
-  MAX_PAYMENT_EVIDENCE_FILES,
-  PAYMENT_EVIDENCE_TYPES,
-  PAYMENT_METHODS,
-  validatePaymentInput,
-} from "@/lib/utils/payment-validation";
+import { PAYMENT_METHODS, validatePaymentInput } from "@/lib/utils/payment-validation";
 import { formatCurrency } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -17,8 +12,6 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface PaymentReservationSummary {
   id: string;
-  invoiceNumber: string;
-  customerName: string;
   fbName: string;
   amount: number;
   totalPaid: number;
@@ -45,27 +38,10 @@ export function PaymentFormModal({
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
-  const [evidence, setEvidence] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  function handleEvidence(files: FileList | null) {
-    const selected = files ? Array.from(files) : [];
-    const validationError = validatePaymentInput({
-      amount: 1,
-      method: "Cash",
-      remainingBalance: Number.MAX_SAFE_INTEGER,
-      evidence: selected,
-    });
-
-    if (validationError) {
-      setEvidence([]);
-      setError(validationError);
-      return;
-    }
-    setEvidence(selected);
-    setError(null);
-  }
+  const fbLabel =
+    reservation.fbName && reservation.fbName !== "—" ? reservation.fbName : "this customer";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,7 +52,7 @@ export function PaymentFormModal({
       amount: parsedAmount,
       method,
       remainingBalance: reservation.balance,
-      evidence,
+      evidence: [],
     });
     if (validationError) {
       setError(validationError);
@@ -85,7 +61,7 @@ export function PaymentFormModal({
 
     const ok = await confirm({
       title: "Record Payment",
-      description: `Record payment of ${formatCurrency(parsedAmount)} for reservation ${reservation.invoiceNumber}?`,
+      description: `Record payment of ${formatCurrency(parsedAmount)} for ${fbLabel}'s order?`,
       confirmLabel: "Record Payment",
       variant: "primary",
     });
@@ -96,7 +72,6 @@ export function PaymentFormModal({
     formData.set("payment_method", method);
     formData.set("reference_number", reference.trim());
     formData.set("notes", notes.trim());
-    evidence.forEach((file) => formData.append("evidence", file));
 
     startTransition(async () => {
       const result = await recordReservationPayment(reservation.id, formData);
@@ -112,16 +87,10 @@ export function PaymentFormModal({
         return;
       }
 
-      const message = result.shipped
-        ? `Payment details recorded. ${reservation.invoiceNumber} has been moved to Shipped.`
-        : result.fullyPaid
-          ? `Payment recorded. ${reservation.invoiceNumber} is now fully paid.`
+      const message = result.fullyPaid
+          ? `Payment recorded. ${fbLabel}'s order is now fully paid.`
           : `Payment recorded. Remaining balance: ${formatCurrency(result.remainingBalance)}.`;
-      onSuccess(
-        result.evidenceCount > 0
-          ? `${message} Saved ${result.evidenceCount} evidence image(s).`
-          : message
-      );
+      onSuccess(message);
       router.refresh();
       onClose();
     });
@@ -137,15 +106,14 @@ export function PaymentFormModal({
       <div className="w-full max-w-2xl rounded-xl border border-white/10 bg-background shadow-2xl">
         <header className="flex items-start justify-between border-b border-white/[0.07] px-5 py-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-pink-light">
-              {reservation.invoiceNumber}
-            </p>
-            <h2 id="payment-form-title" className="mt-1 text-lg font-semibold text-foreground">
+            <h2 id="payment-form-title" className="text-lg font-semibold text-foreground">
               Record Payment
             </h2>
-            <p className="mt-1 text-sm text-muted">{reservation.customerName}</p>
-            <p className="text-sm text-muted">
-              Facebook / CS: {reservation.fbName === "—" ? "Not provided" : reservation.fbName}
+            <p className="mt-1 text-sm text-muted">
+              FB Name:{" "}
+              <span className="font-medium text-pink-light">
+                {reservation.fbName && reservation.fbName !== "—" ? reservation.fbName : "Not provided"}
+              </span>
             </p>
           </div>
           <button
@@ -211,31 +179,6 @@ export function PaymentFormModal({
                 onChange={(event) => setReference(event.target.value)}
                 placeholder="Optional transaction/reference number"
               />
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label htmlFor="payment-evidence">Evidence</Label>
-              <label
-                htmlFor="payment-evidence"
-                className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.02] px-4 py-5 text-sm text-muted transition-all duration-200 hover:border-primary/60 hover:bg-primary/[0.04] hover:text-foreground"
-              >
-                <Upload className="h-4 w-4" aria-hidden />
-                {evidence.length > 0
-                  ? `${evidence.length} image(s) selected`
-                  : `Choose up to ${MAX_PAYMENT_EVIDENCE_FILES} receipt images`}
-              </label>
-              <input
-                id="payment-evidence"
-                name="evidence"
-                type="file"
-                multiple
-                accept={PAYMENT_EVIDENCE_TYPES.join(",")}
-                className="sr-only"
-                onChange={(event) => handleEvidence(event.target.files)}
-              />
-              <p className="mt-1 text-xs text-muted">
-                Optional. JPEG, PNG, or WebP; maximum 5 MB each.
-              </p>
             </div>
 
             <div className="sm:col-span-2">

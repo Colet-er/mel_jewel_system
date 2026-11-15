@@ -1,5 +1,5 @@
 import type { Order } from "@/types";
-import { describeDbError, fetchOrders } from "@/lib/supabase/queries";
+import { describeDbError, fetchOrders, hasRecordedPayment } from "@/lib/supabase/queries";
 import { calculatePaymentBalance } from "@/lib/utils/payment-validation";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
   type ReservedSummary,
 } from "@/components/orders/reserved-items-view";
 import { AddReservationButton } from "@/components/orders/add-reservation-button";
+import { ImportReservationsButton } from "@/components/orders/import-reservations-button";
 
 interface ReservedItemsPageProps {
   searchParams: Promise<{ q?: string; month?: string; year?: string }>;
@@ -99,7 +100,8 @@ export default async function ReservedItemsPage({ searchParams }: ReservedItemsP
     dbError = describeDbError(error);
   }
 
-  const rows = (orders ?? []).map(buildRow);
+  // Reservations with any downpayment/payment are listed on the Paid page.
+  const rows = (orders ?? []).filter((order) => !hasRecordedPayment(order)).map(buildRow);
   const summary = buildSummary(
     rows,
     rows.reduce((sum, row) => sum + row.balance, 0)
@@ -107,15 +109,13 @@ export default async function ReservedItemsPage({ searchParams }: ReservedItemsP
 
   const csvRows = rows.map((row) => [
     row.createdAt,
-    row.invoiceNumber,
+    row.type,
     row.fbName,
-    row.customerName,
     row.itemName,
     row.qty,
     row.amount,
     row.dpPaid,
     row.balance,
-    row.status,
   ]);
 
   return (
@@ -131,15 +131,13 @@ export default async function ReservedItemsPage({ searchParams }: ReservedItemsP
               filename={`reserved-items-${year}-${String(month).padStart(2, "0")}.csv`}
               headers={[
                 "Reserve Date",
-                "Invoice No.",
+                "Order Type",
                 "FB Name",
-                "Customer Name",
                 "Item",
                 "Qty",
                 "Amount",
                 "DP",
                 "Balance",
-                "Status",
               ]}
               rows={csvRows}
             />
@@ -155,7 +153,10 @@ export default async function ReservedItemsPage({ searchParams }: ReservedItemsP
               {q ? `Filtered by “${q}”.` : "Select reservations to mark them as paid or archive them."}
             </CardDescription>
           </div>
-          <AddReservationButton />
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportReservationsButton />
+            <AddReservationButton />
+          </div>
         </CardHeader>
         <CardContent className="px-0 pb-0">
           {dbError ? (

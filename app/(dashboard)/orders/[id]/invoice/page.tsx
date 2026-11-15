@@ -67,7 +67,7 @@ export default async function InvoicePage({
     <div className="space-y-6">
       <PageHeader
         className="invoice-actions"
-        title={`Invoice ${order.order_number}`}
+        title={order.customer?.fb_name ? `Invoice · ${order.customer.fb_name}` : "Invoice"}
         description={`Recorded ${formatDateTime(order.created_at)}.`}
         actions={<BackLink />}
       />

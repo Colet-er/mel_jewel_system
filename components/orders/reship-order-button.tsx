@@ -10,10 +10,10 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 /** Re-ships an RTO order back to Shipped via the mark_order_shipped RPC. */
 export function ReshipOrderButton({
   orderId,
-  invoiceNumber,
+  fbName,
 }: {
   orderId: string;
-  invoiceNumber?: string;
+  fbName?: string;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -22,7 +22,7 @@ export function ReshipOrderButton({
 
   async function handleClick() {
     if (isPending) return;
-    const label = invoiceNumber ? `order ${invoiceNumber}` : "this order";
+    const label = fbName ? `${fbName}'s order` : "this order";
     const ok = await confirm({
       title: "Re-ship Order",
       description: `Re-ship ${label} back to Shipped status?`,

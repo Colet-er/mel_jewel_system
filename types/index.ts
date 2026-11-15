@@ -9,7 +9,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type OrderStatus = "reserved" | "paid" | "shipped" | "claimed" | "cancelled" | "rto";
+export type OrderStatus = "reserved" | "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto";
 
 export type ReservationType = "regular" | "pasabuy" | "cod";
 
@@ -128,6 +128,10 @@ export interface Order {
   reservation_type?: ReservationType | null;
   reserved_until: string | null;
   paid_at: string | null;
+  booked_at?: string | null;
+  tracking_number?: string | null;
+  /** Courier label (see lib/utils/delivery-status.ts). */
+  delivery_status?: string | null;
   shipped_at?: string | null;
   claimed_at?: string | null;
   cancelled_at?: string | null;
@@ -200,31 +204,6 @@ export interface MoissaniteSku {
   updated_at: string;
 }
 
-export interface SoldMoissanite {
-  id: string;
-  date_sold: string;
-  invoice_number: string;
-  sku_id: string;
-  order_id?: string | null;
-  order_item_id?: string | null;
-  customer_id: string | null;
-  quantity: number;
-  selling_price: number;
-  total_amount: number;
-  status: "completed" | "pending" | "refunded";
-  notes: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-  sku?: MoissaniteSku | null;
-  customer?: {
-    name: string;
-    fb_name?: string | null;
-    phone?: string | null;
-    address?: string | null;
-  } | null;
-}
-
 export interface Collection {
   id: string;
   order_id: string;
@@ -240,6 +219,7 @@ export interface Collection {
     id: string;
     order_number: string;
     status: OrderStatus;
+    reservation_type?: ReservationType | null;
     total_amount: number;
     customer?: {
       name: string;

@@ -57,7 +57,7 @@ export async function saveProduct(input: ProductInput): Promise<ProductActionRes
 
   if (error) {
     if (error.code === "23505" || /unique|duplicate/i.test(error.message)) {
-      return { ok: false, message: "That SKU already exists." };
+      return { ok: false, message: "That code already exists." };
     }
     if (error.code === "42501" || /row-level security|not authorized/i.test(error.message)) {
       return { ok: false, message: "You are not authorized to manage products." };

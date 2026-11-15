@@ -63,7 +63,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Order ${order.order_number}`}
+        title={order.customer?.fb_name ? `Order · ${order.customer.fb_name}` : "Order Details"}
         description={`Recorded ${formatDateTime(order.created_at)}.`}
         actions={<BackLink />}
       />

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus, ShoppingCart } from "lucide-react";
 import type { Order, OrderStatus } from "@/types";
 import { describeDbError, fetchOrders } from "@/lib/supabase/queries";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ExportButton } from "@/components/filters/export-button";
 import { SearchInput } from "@/components/filters/search-input";
+import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
 
 export interface OrdersViewProps {
   title: string;
@@ -25,14 +26,9 @@ export interface OrdersViewProps {
 
 const COLUMNS: Column<Order>[] = [
   {
-    key: "order_number",
-    header: "Order #",
-    render: (row) => <span className="font-medium text-pink-light">{row.order_number}</span>,
-  },
-  {
-    key: "customer",
-    header: "Customer",
-    render: (row) => row.customer?.name ?? <span className="text-muted">—</span>,
+    key: "fb_name",
+    header: "FB Name",
+    render: (row) => <FbNameInvoiceLink orderId={row.id} fbName={row.customer?.fb_name || "—"} />,
   },
   {
     key: "items",
@@ -44,7 +40,13 @@ const COLUMNS: Column<Order>[] = [
     key: "total",
     header: "Total",
     render: (row) => formatCurrency(Number(row.total_amount)),
-    className: "text-right",
+    className: "text-right whitespace-nowrap",
+  },
+  {
+    key: "order_type",
+    header: "Order Type",
+    className: "whitespace-nowrap",
+    render: (row) => formatReservationType(row.reservation_type),
   },
   {
     key: "status",
@@ -58,12 +60,12 @@ const COLUMNS: Column<Order>[] = [
   },
 ];
 
-const CSV_HEADERS = ["Order #", "Customer", "Status", "Items", "Total", "Date"];
+const CSV_HEADERS = ["Order Type", "FB Name", "Status", "Items", "Total", "Date"];
 
 function toCsvRow(order: Order): (string | number)[] {
   return [
-    order.order_number,
-    order.customer?.name ?? "",
+    formatReservationType(order.reservation_type),
+    order.customer?.fb_name ?? "",
     order.status,
     (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0),
     Number(order.total_amount),

@@ -10,6 +10,10 @@ const statusConfig: Record<OrderStatus, { label: string; className: string }> = 
     label: "Paid",
     className: "bg-primary/10 text-pink-light border-primary/30",
   },
+  booked: {
+    label: "Booked",
+    className: "bg-sky-400/10 text-sky-300 border-sky-400/30",
+  },
   shipped: {
     label: "Shipped",
     className: "bg-success/10 text-success border-success/30",
@@ -70,28 +74,6 @@ const moissaniteStatusConfig: Record<MoissaniteStatus, { label: string; classNam
 
 export function MoissaniteStatusBadge({ status, className }: { status: MoissaniteStatus; className?: string }) {
   const config = moissaniteStatusConfig[status];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide shadow-sm",
-        config.className,
-        className
-      )}
-    >
-      {config.label}
-    </span>
-  );
-}
-
-type SoldMoissaniteStatus = "completed" | "pending" | "refunded";
-const soldMoissaniteStatusConfig: Record<SoldMoissaniteStatus, { label: string; className: string }> = {
-  completed: { label: "Completed", className: "bg-success/10 text-success border-success/30" },
-  pending: { label: "Pending", className: "bg-warning/10 text-warning border-warning/30" },
-  refunded: { label: "Refunded", className: "bg-danger/10 text-danger border-danger/30" },
-};
-
-export function SoldMoissaniteStatusBadge({ status, className }: { status: SoldMoissaniteStatus; className?: string }) {
-  const config = soldMoissaniteStatusConfig[status];
   return (
     <span
       className={cn(

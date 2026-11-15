@@ -46,9 +46,9 @@ export default async function AccountsPage() {
             created_at,
             changed_by,
             orders (
-              order_number,
               customer:customers (
-                name
+                name,
+                fb_name
               )
             )
           `)
@@ -87,8 +87,7 @@ export default async function AccountsPage() {
         return {
           id: item.id,
           orderId: item.order_id,
-          orderCode: order?.order_number ?? item.order_id.slice(0, 8),
-          customerName: customer?.name ?? null,
+          fbName: customer?.fb_name ?? null,
           fromStatus: item.from_status,
           toStatus: item.to_status,
           notes: item.notes,
@@ -129,9 +128,9 @@ export default async function AccountsPage() {
             created_at,
             changed_by,
             orders (
-              order_number,
               customer:customers (
-                name
+                name,
+                fb_name
               )
             )
           `)
@@ -166,8 +165,7 @@ export default async function AccountsPage() {
         return {
           id: item.id,
           orderId: item.order_id,
-          orderCode: order?.order_number ?? item.order_id.slice(0, 8),
-          customerName: customer?.name ?? null,
+          fbName: customer?.fb_name ?? null,
           fromStatus: item.from_status,
           toStatus: item.to_status,
           notes: item.notes,

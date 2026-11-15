@@ -65,7 +65,7 @@ When repeat buyers claim multiple pieces at different times during a live sellin
 3. **Add Items**: Select from catalog or manually type custom items, quantities, and prices.
 4. **Discounts & Shipping**: Enter agreed discount and courier shipping fee.
 5. **Downpayment (DP)**: Enter initial deposit and choose payment method (GCash, BDO, BPI, Maya, Cash).
-6. **Save**: Click **Save Reservation**. An invoice number (e.g. `2026-100401`) is generated.
+6. **Save**: Click **Save Reservation**. Click the customer's FB name in any table to open the invoice.
 
 ---
 
@@ -113,7 +113,6 @@ Located at `/orders/[id]/invoice`:
 ## 9. Moissanite Luxury Jewelry Inventory
 
 - **SKU Catalog** (`/moissanite/sku`): Manage stone cuts, settings (Solitaire, Halo, 6-Prong, Pavé), carat sizes, cost prices, and retail prices.
-- **Sold Records** (`/moissanite/sold`): Tracks sold Moissanite pieces, invoice numbers, sale dates, and profit margins.
 
 ---
 

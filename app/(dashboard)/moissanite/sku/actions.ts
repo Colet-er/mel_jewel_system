@@ -33,7 +33,6 @@ function validateInput(input: MoissaniteInventoryInput): string | null {
 
 function revalidateInventory() {
   revalidatePath("/moissanite/sku");
-  revalidatePath("/moissanite/sold");
   revalidatePath("/orders/reserved");
   revalidatePath("/dashboard");
 }

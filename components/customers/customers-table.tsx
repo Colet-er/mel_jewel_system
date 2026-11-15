@@ -174,8 +174,8 @@ export function CustomersTable({ customers, q }: CustomersTableProps) {
           />
         </div>
       ) : (
-        <div className="w-full overflow-x-auto rounded-b-2xl [scrollbar-gutter:stable]">
-          <table className="w-full min-w-full text-left text-xs sm:text-sm">
+        <div className="w-full rounded-b-2xl">
+          <table className="w-full text-left text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-white/[0.07] bg-white/[0.025]">
                 <th scope="col" className="w-10 px-4 py-3 sm:px-5">
@@ -189,7 +189,7 @@ export function CustomersTable({ customers, q }: CustomersTableProps) {
                   />
                 </th>
                 <th scope="col" className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-4">
-                  Customer
+                  FB Name
                 </th>
                 <th scope="col" className="px-3 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-4">
                   Address
@@ -218,27 +218,22 @@ export function CustomersTable({ customers, q }: CustomersTableProps) {
                     <td className="px-4 py-3.5 sm:px-5">
                       <input
                         type="checkbox"
-                        aria-label={`Select customer ${customer.name}`}
+                        aria-label={`Select customer ${customer.fb_name || customer.name}`}
                         checked={isSelected}
                         onChange={() => toggleOne(customer.id)}
                         className={checkboxClass}
                       />
                     </td>
                     <td className="px-3 py-3.5 sm:px-4">
-                      <div>
-                        <span className="font-semibold text-foreground">{customer.name}</span>
-                        {customer.fb_name ? (
-                          <p className="text-xs text-muted">
-                            FB: <span className="text-foreground/80">{customer.fb_name}</span>
-                          </p>
-                        ) : null}
-                      </div>
+                      <span className="break-words font-semibold text-foreground">
+                        {customer.fb_name || <span className="font-normal text-muted">—</span>}
+                      </span>
                     </td>
                     <td className="px-3 py-3.5 sm:px-4">
                       {customer.address ? (
-                        <div className="flex max-w-xs items-start gap-1.5 text-secondary" title={customer.address}>
+                        <div className="flex items-start gap-1.5 text-secondary" title={customer.address}>
                           <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" aria-hidden />
-                          <span className="line-clamp-2">{customer.address}</span>
+                          <span className="break-words">{customer.address}</span>
                         </div>
                       ) : (
                         <span className="text-muted">—</span>

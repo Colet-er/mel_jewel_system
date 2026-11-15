@@ -179,7 +179,7 @@ function ProductFormModal({ categories, initial, defaultIsMoissanite = false, on
               </div>
 
               <div>
-                <Label htmlFor="product-sku">SKU / Item Code</Label>
+                <Label htmlFor="product-sku">Code</Label>
                 <Input
                   id="product-sku"
                   className="h-11 font-mono uppercase"

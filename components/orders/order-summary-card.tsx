@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { BadgeCheck, CreditCard, FileText, Hash, Image as LucideImage } from "lucide-react";
 import type { Order } from "@/types";
@@ -8,10 +9,12 @@ import { formatDateTime, formatCurrency, formatDate, formatReservationType } fro
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ShipOrderButton } from "@/components/orders/ship-order-button";
+import { BookOrderButton, ShipOrderButton } from "@/components/orders/ship-order-button";
 import { PaymentFormModal } from "@/components/orders/payment-form";
+import { PaymentEntryActions } from "@/components/orders/payment-entry-actions";
 
 export function OrderSummaryCard({ order }: { order: Order }) {
+  const router = useRouter();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -22,7 +25,10 @@ export function OrderSummaryCard({ order }: { order: Order }) {
   const totalPaid = (order.payments ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
   const balance = Math.max(grandTotal - totalPaid, 0);
 
-  const canShip = order.status === "reserved" || order.status === "paid";
+  // Booking needs at least a downpayment: plain reservations must record a payment first.
+  const canBook =
+    order.status === "paid" || order.status === "rto" || (order.status === "reserved" && totalPaid > 0);
+  const canShip = order.status === "booked";
   const canRecordPayment = order.status !== "cancelled" && balance > 0;
 
   return (
@@ -40,10 +46,11 @@ export function OrderSummaryCard({ order }: { order: Order }) {
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle>Order Summary</CardTitle>
-            <CardDescription>Invoice {order.order_number}</CardDescription>
+            <CardDescription>{order.customer?.fb_name ? `FB: ${order.customer.fb_name}` : "Order details"}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            {canShip ? <ShipOrderButton orderId={order.id} /> : null}
+            {canBook ? <BookOrderButton orderId={order.id} /> : null}
+            {canShip ? <ShipOrderButton orderId={order.id} trackingNumber={order.tracking_number ?? null} /> : null}
             {canRecordPayment ? (
               <Button size="sm" onClick={() => setShowPaymentModal(true)}>
                 <BadgeCheck className="h-4 w-4" aria-hidden />
@@ -138,9 +145,26 @@ export function OrderSummaryCard({ order }: { order: Order }) {
                         <span className="text-muted">•</span>
                         <span className="font-medium text-pink-light">{formatCurrency(Number(payment.amount))}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted">
-                        <CreditCard className="h-3 w-3" aria-hidden />
-                        {payment.created_at ? formatDate(payment.created_at) : "—"}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <CreditCard className="h-3 w-3" aria-hidden />
+                          {payment.created_at ? formatDate(payment.created_at) : "—"}
+                        </div>
+                        {order.status !== "cancelled" && payment.id ? (
+                          <PaymentEntryActions
+                            payment={{
+                              id: payment.id,
+                              amount: Number(payment.amount),
+                              payment_method: payment.payment_method ?? "Cash",
+                              reference_number: payment.reference_number ?? null,
+                              notes: payment.notes ?? null,
+                            }}
+                            onChanged={(msg) => {
+                              setNotice(msg);
+                              router.refresh();
+                            }}
+                          />
+                        ) : null}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -211,8 +235,6 @@ export function OrderSummaryCard({ order }: { order: Order }) {
         <PaymentFormModal
           reservation={{
             id: order.id,
-            invoiceNumber: order.order_number,
-            customerName: order.customer?.name ?? "",
             fbName: order.customer?.fb_name ?? "",
             amount: grandTotal,
             totalPaid,

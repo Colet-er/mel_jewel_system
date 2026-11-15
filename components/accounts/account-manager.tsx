@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { RoleBadge } from "@/components/ui/status-badge";
+import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils/cn";
@@ -46,8 +47,7 @@ export interface ManagedAccount {
 export interface ActivityLogItem {
   id: string;
   orderId: string;
-  orderCode: string;
-  customerName: string | null;
+  fbName: string | null;
   fromStatus: string | null;
   toStatus: string;
   notes: string | null;
@@ -132,8 +132,7 @@ export function AccountManager({
     if (!q) return list;
     return list.filter(
       (log) =>
-        log.orderCode.toLowerCase().includes(q) ||
-        (log.customerName && log.customerName.toLowerCase().includes(q)) ||
+        (log.fbName && log.fbName.toLowerCase().includes(q)) ||
         (log.notes && log.notes.toLowerCase().includes(q)) ||
         (log.changedBy?.fullName && log.changedBy.fullName.toLowerCase().includes(q)) ||
         (log.changedBy?.email && log.changedBy.email.toLowerCase().includes(q)) ||
@@ -352,8 +351,8 @@ export function AccountManager({
           </div>
 
           {/* User Table */}
-          <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-card/60 backdrop-blur-sm [scrollbar-gutter:stable]">
-            <table className="w-full min-w-full text-left text-xs sm:text-sm">
+          <div className="rounded-2xl border border-white/[0.08] bg-card/60 backdrop-blur-sm">
+            <table className="w-full text-left text-xs sm:text-sm">
               <thead className="border-b border-white/[0.08] bg-white/[0.02]">
                 <tr>
                   {[
@@ -432,7 +431,7 @@ export function AccountManager({
               <Input
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
-                placeholder="Search activity logs by order #, customer, user, or notes..."
+                placeholder="Search activity logs by FB name, user, or notes..."
                 className="pl-10"
               />
             </div>
@@ -446,6 +445,7 @@ export function AccountManager({
                 <option value="all">All Event Types</option>
                 <option value="reserved">Reserved</option>
                 <option value="paid">Paid</option>
+                <option value="booked">Booked</option>
                 <option value="shipped">Shipped</option>
                 <option value="claimed">Claimed</option>
                 <option value="rto">RTO</option>
@@ -455,14 +455,13 @@ export function AccountManager({
           </div>
 
           {/* Activity Logs Table */}
-          <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-card/60 backdrop-blur-sm [scrollbar-gutter:stable]">
-            <table className="w-full min-w-full text-left text-xs sm:text-sm">
+          <div className="rounded-2xl border border-white/[0.08] bg-card/60 backdrop-blur-sm">
+            <table className="w-full text-left text-xs sm:text-sm">
               <thead className="border-b border-white/[0.08] bg-white/[0.02]">
                 <tr>
                   {[
                     "Timestamp",
-                    "Order Code",
-                    "Customer",
+                    "FB Name",
                     "Status Transition",
                     "Action By",
                     "Notes / Details",
@@ -479,7 +478,7 @@ export function AccountManager({
               <tbody className="divide-y divide-white/[0.04]">
                 {filteredLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-muted">
+                    <td colSpan={5} className="px-6 py-12 text-center text-muted">
                       No activity logs match the selected criteria.
                     </td>
                   </tr>
@@ -492,11 +491,12 @@ export function AccountManager({
                           <span suppressHydrationWarning>{log.createdAt}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 font-mono text-xs font-semibold text-primary">
-                        {log.orderCode}
-                      </td>
-                      <td className="px-4 py-3.5 text-foreground">
-                        {log.customerName || <span className="text-muted italic">None</span>}
+                      <td className="px-3 py-3.5">
+                        {log.fbName ? (
+                          <FbNameInvoiceLink orderId={log.orderId} fbName={log.fbName} />
+                        ) : (
+                          <span className="text-muted italic">None</span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">

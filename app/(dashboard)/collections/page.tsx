@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { DollarSign, CreditCard, Eye } from "lucide-react";
+import { DollarSign, CreditCard } from "lucide-react";
 import { describeDbError } from "@/lib/supabase/queries";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import type { OrderStatus } from "@/types";
+import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -12,7 +12,7 @@ import { SearchInput } from "@/components/filters/search-input";
 import { MonthYearFilter } from "@/components/filters/month-year-filter";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatCard } from "@/components/ui/stat-card";
-import { buttonVariants } from "@/components/ui/button";
+import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
 import { fetchCollections } from "@/lib/supabase/queries";
 
 export const metadata = { title: "Collections" };
@@ -21,9 +21,8 @@ interface CollectionRow {
   id: string;
   orderId: string | null;
   collectedAt: string;
-  orderNumber: string;
   orderStatus: string;
-  customerName: string;
+  orderType: string;
   fbName: string;
   amount: number;
   paymentMethod: string;
@@ -38,31 +37,30 @@ const COLUMNS: Column<CollectionRow>[] = [
     render: (row) => formatDate(row.collectedAt),
   },
   {
-    key: "orderNumber",
-    header: "Invoice No.",
-    render: (row) => <span className="font-medium text-pink-light">{row.orderNumber}</span>,
+    key: "fbName",
+    header: "FB Name",
+    render: (row) =>
+      row.orderId ? (
+        <FbNameInvoiceLink orderId={row.orderId} fbName={row.fbName} />
+      ) : (
+        <span className="break-words">{row.fbName}</span>
+      ),
+  },
+  {
+    key: "orderType",
+    header: "Order Type",
+    className: "whitespace-nowrap",
+    render: (row) => row.orderType,
   },
   {
     key: "orderStatus",
     header: "Order Status",
-    render: (row) => <StatusBadge status={row.orderStatus as "reserved" | "paid" | "shipped" | "claimed" | "cancelled" | "rto"} />,
-  },
-  {
-    key: "customerName",
-    header: "Customer",
-    render: (row) => (
-      <div>
-        <span className="font-medium">{row.customerName}</span>
-        {row.fbName && row.fbName !== "—" && (
-          <span className="text-muted text-xs ml-2">(@{row.fbName})</span>
-        )}
-      </div>
-    ),
+    render: (row) => <StatusBadge status={row.orderStatus as OrderStatus} />,
   },
   {
     key: "amount",
     header: "Amount",
-    className: "text-right",
+    className: "text-right whitespace-nowrap",
     render: (row) => <span className="font-medium text-pink-light">{formatCurrency(row.amount)}</span>,
   },
   {
@@ -73,31 +71,16 @@ const COLUMNS: Column<CollectionRow>[] = [
   {
     key: "referenceNumber",
     header: "Reference No.",
-    render: (row) => row.referenceNumber ? <span className="font-mono text-sm">{row.referenceNumber}</span> : <span className="text-muted">—</span>,
+    render: (row) => row.referenceNumber ? <span className="break-all text-sm">{row.referenceNumber}</span> : <span className="text-muted">—</span>,
   },
   {
     key: "notes",
     header: "Notes",
-    render: (row) => row.notes ? <span className="text-muted max-w-xs truncate block">{row.notes}</span> : <span className="text-muted">—</span>,
-  },
-  {
-    key: "action",
-    header: "Action",
-    className: "text-right whitespace-nowrap",
-    render: (row) =>
-      row.orderId ? (
-        <Link
-          href={`/orders/${row.orderId}/invoice`}
-          className={buttonVariants({ variant: "secondary", size: "sm" })}
-        >
-          <Eye className="h-4 w-4" aria-hidden />
-          View Invoice
-        </Link>
-      ) : null,
+    render: (row) => row.notes ? <span className="block break-words text-muted">{row.notes}</span> : <span className="text-muted">—</span>,
   },
 ];
 
-const CSV_HEADERS = ["Collected Date", "Invoice No.", "Order Status", "Customer", "Amount", "Payment Method", "Reference No.", "Notes"];
+const CSV_HEADERS = ["Collected Date", "Order Type", "FB Name", "Order Status", "Amount", "Payment Method", "Reference No.", "Notes"];
 
 export default async function CollectionsPage({
   searchParams,
@@ -119,10 +102,9 @@ export default async function CollectionsPage({
       id: c.id,
       orderId: c.order?.id ?? null,
       collectedAt: c.collected_at,
-      orderNumber: c.order?.order_number ?? "—",
       orderStatus: c.order?.status ?? "reserved",
-      customerName: c.customer?.name ?? "—",
-      fbName: c.customer?.fb_name ?? "—",
+      orderType: c.order ? formatReservationType(c.order.reservation_type) : "—",
+      fbName: c.customer?.fb_name || c.order?.customer?.fb_name || "—",
       amount: Number(c.amount),
       paymentMethod: c.payment_method,
       referenceNumber: c.reference_number,
@@ -135,9 +117,9 @@ export default async function CollectionsPage({
   const totalCollected = (collections ?? []).reduce((sum, c) => sum + c.amount, 0);
   const csvRows = (collections ?? []).map((row) => [
     formatDate(row.collectedAt),
-    row.orderNumber,
+    row.orderType,
+    row.fbName,
     row.orderStatus,
-    row.customerName,
     row.amount,
     row.paymentMethod,
     row.referenceNumber ?? "",
@@ -152,7 +134,7 @@ export default async function CollectionsPage({
         actions={
           <>
             <MonthYearFilter month={month} year={year} />
-            <SearchInput placeholder="Search invoice, customer, reference…" />
+            <SearchInput placeholder="Search reference no.…" />
             <ExportButton
               filename={`collections-${year}-${String(month).padStart(2, "0")}.csv`}
               headers={CSV_HEADERS}

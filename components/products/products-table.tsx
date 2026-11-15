@@ -179,8 +179,8 @@ export function ProductsTable({ products, categories, empty }: ProductsTableProp
       ) : (
         <>
           {/* Desktop Table View */}
-          <div className="hidden md:block w-full overflow-x-auto [scrollbar-gutter:stable]">
-            <table className="w-full min-w-full text-left text-xs sm:text-sm">
+          <div className="hidden md:block w-full">
+            <table className="w-full text-left text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-border bg-white/[0.02]">
                   <th scope="col" className="w-10 px-4 py-3 sm:px-5">
@@ -193,22 +193,22 @@ export function ProductsTable({ products, categories, empty }: ProductsTableProp
                       className={checkboxClass}
                     />
                   </th>
-                  <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
+                  <th scope="col" className="px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3 xl:px-4">
                     Product
                   </th>
-                  <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
-                    SKU
+                  <th scope="col" className="px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3 xl:px-4">
+                    Code
                   </th>
-                  <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
+                  <th scope="col" className="px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3 xl:px-4">
                     Type
                   </th>
-                  <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
+                  <th scope="col" className="px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3 xl:px-4">
                     Category
                   </th>
                   <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
                     Selling Price
                   </th>
-                  <th scope="col" className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
+                  <th scope="col" className="px-2.5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-3 xl:px-4">
                     Reservation Status
                   </th>
                   <th scope="col" className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">

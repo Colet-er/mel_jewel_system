@@ -28,7 +28,6 @@ export interface InvoiceItemLine {
 }
 
 export interface InvoiceSummary {
-  invoiceNumber: string;
   customerName: string;
   date: string;
   items: InvoiceItemLine[];
@@ -59,6 +58,7 @@ export type InvoiceStatusLabel =
   | "Fully Paid"
   | "COD"
   | "Cancelled"
+  | "Booked"
   | "Shipped";
 
 /** Sum of every recorded payment row — downpayments plus balances. */
@@ -117,7 +117,6 @@ export function buildInvoiceSummary(order: Order): InvoiceSummary {
   const totalPaid = round2(downpayment + balancePayments);
 
   return {
-    invoiceNumber: order.order_number,
     customerName: order.customer?.name ?? "—",
     date: formatDate(order.created_at),
     items,
@@ -165,6 +164,7 @@ export function getInvoiceStatusLabel(
   summary = buildInvoiceSummary(order)
 ): InvoiceStatusLabel {
   if (order.status === "cancelled") return "Cancelled";
+  if (order.status === "booked") return "Booked";
   if (order.status === "shipped") return "Shipped";
 
   const isCod = isCodOrder(order);

@@ -50,7 +50,7 @@ export function isMoissanite(product: {
   );
 }
 
-const CSV_HEADERS = ["Product", "SKU", "Type", "Category", "Price", "Cost", "Reservation Status"];
+const CSV_HEADERS = ["Product", "Code", "Type", "Category", "Price", "Cost", "Reservation Status"];
 
 export default async function ProductsPage({
   searchParams,
@@ -218,7 +218,7 @@ export default async function ProductsPage({
         description="Manage your complete catalog of Moissanite stones, fine jewelry, and products."
         actions={
           <>
-            <SearchInput placeholder="Search name or SKU…" />
+            <SearchInput placeholder="Search name or code…" />
             <ExportButton
               filename={`products-${tab}-${new Date().toISOString().slice(0, 10)}.csv`}
               headers={CSV_HEADERS}
