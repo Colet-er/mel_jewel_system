@@ -10,6 +10,10 @@ export interface OrdersFilter {
   year?: number;
   q?: string;
   limit?: number;
+  /** Only COD orders (reservation_type = 'cod'). */
+  cod?: boolean;
+  /** Only orders with this courier/delivery label. */
+  deliveryStatus?: string;
 }
 
 export interface DashboardTotals {
@@ -110,6 +114,9 @@ const ORDER_SELECT = `
   rto_at,
   rto_reason,
   rto_notes,
+  order_source,
+  is_pasabuy_cod,
+  claim_code,
   notes,
   created_at,
   updated_at,
@@ -131,6 +138,14 @@ export async function fetchOrders(filter: OrdersFilter = {}): Promise<Order[]> {
 
   if (filter.status) {
     query = query.eq("status", filter.status);
+  }
+
+  if (filter.cod) {
+    query = query.eq("reservation_type", "cod");
+  }
+
+  if (filter.deliveryStatus) {
+    query = query.eq("delivery_status", filter.deliveryStatus);
   }
 
   if (filter.month && filter.year) {
@@ -529,7 +544,7 @@ const COLLECTIONS_SELECT = `
   collected_by,
   collected_at,
   created_at,
-  order:orders ( id, order_number, status, reservation_type, total_amount, customer:customers ( name, fb_name ) ),
+  order:orders ( id, order_number, status, reservation_type, order_source, total_amount, customer:customers ( name, fb_name ) ),
   customer:customers ( name, fb_name, phone, address )
 `;
 

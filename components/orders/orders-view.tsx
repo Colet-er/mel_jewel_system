@@ -4,6 +4,7 @@ import type { Order, OrderStatus } from "@/types";
 import { describeDbError, fetchOrders } from "@/lib/supabase/queries";
 import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
 import { PageHeader } from "@/components/layout/page-header";
+import { WithSourceBadge } from "@/components/orders/order-source-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -28,7 +29,11 @@ const COLUMNS: Column<Order>[] = [
   {
     key: "fb_name",
     header: "FB Name",
-    render: (row) => <FbNameInvoiceLink orderId={row.id} fbName={row.customer?.fb_name || "—"} />,
+    render: (row) => (
+      <WithSourceBadge source={row.order_source}>
+        <FbNameInvoiceLink orderId={row.id} fbName={row.customer?.fb_name || "—"} />
+      </WithSourceBadge>
+    ),
   },
   {
     key: "items",

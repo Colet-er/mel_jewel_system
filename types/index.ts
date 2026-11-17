@@ -114,6 +114,8 @@ export interface ReservationInput {
   downpaymentMethod: string;
   type: ReservationType;
   compileTargetOrderId?: string;
+  /** Live or Chat. Omitted (undefined) leaves the order's source unchanged. */
+  orderSource?: "live" | "chat" | null;
 }
 
 export interface Order {
@@ -139,6 +141,12 @@ export interface Order {
   rto_at?: string | null;
   rto_reason?: string | null;
   rto_notes?: string | null;
+  /** Where the order was taken (Live or Chat). */
+  order_source?: "live" | "chat" | null;
+  /** COD orders only: true when the COD is also a Pasabuy order. */
+  is_pasabuy_cod?: boolean | null;
+  /** COD orders only: code needed to claim the COD money. */
+  claim_code?: string | null;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -220,6 +228,7 @@ export interface Collection {
     order_number: string;
     status: OrderStatus;
     reservation_type?: ReservationType | null;
+    order_source?: "live" | "chat" | null;
     total_amount: number;
     customer?: {
       name: string;

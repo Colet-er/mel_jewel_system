@@ -9,6 +9,13 @@ import { setOrderTrackingNumber } from "@/app/(dashboard)/orders/reserved/action
  * Tracking number shown in a table cell. When editable, staff can type or
  * correct it inline; saving refreshes the table so "Mark as Shipped" unlocks.
  */
+/** Long tracking numbers show the first 9 characters and "...". Hover shows the full number. */
+const SHORT_TRACKING_LENGTH = 9;
+
+function shortenTracking(value: string): string {
+  return value.length > SHORT_TRACKING_LENGTH + 3 ? `${value.slice(0, SHORT_TRACKING_LENGTH)}...` : value;
+}
+
 export function TrackingNumberCell({
   orderId,
   value,
@@ -25,7 +32,13 @@ export function TrackingNumberCell({
   const [isPending, startTransition] = useTransition();
 
   if (!editable) {
-    return value ? <span className="[overflow-wrap:anywhere]">{value}</span> : <span className="text-muted">—</span>;
+    return value ? (
+      <span className="whitespace-nowrap" title={value}>
+        {shortenTracking(value)}
+      </span>
+    ) : (
+      <span className="text-muted">—</span>
+    );
   }
 
   function save() {
@@ -54,7 +67,9 @@ export function TrackingNumberCell({
         title={value ? "Edit tracking number" : "Add tracking number"}
       >
         {value ? (
-          <span className="text-foreground [overflow-wrap:anywhere]">{value}</span>
+          <span className="whitespace-nowrap text-foreground" title={value}>
+            {shortenTracking(value)}
+          </span>
         ) : (
           <span className="whitespace-nowrap rounded-md border border-dashed border-amber-400/50 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
             + Add tracking no.

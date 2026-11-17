@@ -1,4 +1,8 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
 import type { Order, OrderStatus } from "@/types";
 import { describeDbError, fetchOrders, fetchPaidPageOrders, settledDownpayment } from "@/lib/supabase/queries";
 import { readSortParams, sortRows, type SortDir } from "@/lib/utils/sort";
@@ -23,8 +27,11 @@ import {
 } from "@/components/orders/bulk-selection";
 import { DELIVERY_STATUS_CONFIG, isDeliveryStatus, type DeliveryStatus } from "@/lib/utils/delivery-status";
 import { TrackingNumberCell } from "@/components/orders/tracking-number-cell";
+import { ClaimCodeCell, OrderSourceSelect, OrderSourceTag, PasabuyCodToggle } from "@/components/orders/order-field-cells";
+import { OrderDetailsPopover, type DetailsSection } from "@/components/orders/order-details-popover";
+import { StatCard } from "@/components/ui/stat-card";
 
-export type StatusViewKind = "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto";
+export type StatusViewKind = "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto" | "branch_collect";
 
 export interface StatusOrdersViewProps {
   kind: StatusViewKind;
@@ -43,6 +50,14 @@ interface StatusRow {
   reference: string;
   trackingNumber: string | null;
   deliveryStatus: string | null;
+  /** Date Shipped (shipped_at). Shown on the Branch Collect page. */
+  shippedDate: string | null;
+  /** Raw reservation type ("regular" | "pasabuy" | "cod") for filtering and sorting. */
+  reservationType: string | null;
+  isCod: boolean;
+  source: "live" | "chat" | null;
+  pasabuyCod: boolean;
+  claimCode: string | null;
   phone: string;
   address: string;
   itemName: string;
@@ -55,6 +70,12 @@ interface StatusRow {
   rtoReason: string;
   rtoNotes: string;
   status: OrderStatus;
+  /** One entry per order item. The table shows one item per row. */
+  items: { code: string; name: string; qty: number }[];
+  /** Every item code joined, for the Details panel. */
+  allCodes: string;
+  /** Unique table key; one order can span several rows. */
+  rowKey: string;
 }
 
 const META: Record<
@@ -90,10 +111,17 @@ const META: Record<
   },
   claimed: {
     title: "Claimed Orders",
-    description: "Orders received and confirmed by customers.",
+    description: "Orders received and confirmed by customers. Sort or filter by Regular / Pasabuy and date.",
     dateLabel: "Claimed Date",
     emptyTitle: "No claimed orders",
     emptyDescription: "Shipped orders marked as Claimed will appear here.",
+  },
+  branch_collect: {
+    title: "Branch Collect",
+    description: "COD orders for branch collection. Enter the claim code to release the COD money.",
+    dateLabel: "Date",
+    emptyTitle: "No branch collect orders",
+    emptyDescription: "COD orders with the Branch Collect status will appear here.",
   },
   cancelled: {
     title: "Cancelled Orders",
@@ -145,7 +173,7 @@ function buildRow(order: Order, kind: StatusViewKind): StatusRow {
   const date =
     kind === "paid"
       ? (order.paid_at ?? latestPaymentDate(order) ?? order.updated_at)
-      : kind === "booked"
+      : kind === "booked" || kind === "branch_collect"
         ? (order.booked_at ?? order.updated_at)
       : kind === "shipped"
         ? (order.shipped_at ?? order.updated_at)
@@ -172,10 +200,27 @@ function buildRow(order: Order, kind: StatusViewKind): StatusRow {
         .join(", ") || "—",
     trackingNumber: order.tracking_number?.trim() || null,
     deliveryStatus: order.delivery_status ?? null,
+    shippedDate: order.shipped_at ?? null,
+    reservationType: order.reservation_type ?? null,
+    isCod: order.reservation_type === "cod",
+    source: order.order_source ?? null,
+    pasabuyCod: Boolean(order.is_pasabuy_cod),
+    claimCode: order.claim_code?.trim() || null,
     phone: order.customer?.phone || "—",
     address: order.customer?.address || "—",
     itemName: itemNameDisplay,
     qty: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0),
+    items: itemsList.map((item) => ({
+      code: item.product?.sku?.trim() || "—",
+      name: item.product?.name ?? "Item",
+      qty: item.quantity,
+    })),
+    allCodes:
+      itemsList
+        .map((item) => item.product?.sku?.trim())
+        .filter((code): code is string => Boolean(code))
+        .join(", ") || "—",
+    rowKey: order.id,
     amount: orderTotal,
     totalPaid: totalPayments,
     balance,
@@ -192,6 +237,7 @@ const DEFAULT_DELIVERY_STATUS: Partial<Record<StatusViewKind, DeliveryStatus>> =
   shipped: "shipped",
   claimed: "delivered",
   rto: "rto",
+  branch_collect: "branch_collect",
 };
 
 /** Bulk actions offered (with row checkboxes) on each page. */
@@ -202,10 +248,25 @@ const BULK_ACTIONS: Record<StatusViewKind, BulkAction[]> = {
   claimed: [],
   cancelled: [],
   rto: ["cancel"],
+  branch_collect: [],
 };
 
-type StatusSortKey = "date" | "fbName" | "itemName";
-const SORT_KEYS = ["date", "fbName", "itemName"] as const;
+type StatusSortKey = "date" | "fbName" | "itemName" | "orderType";
+const SORT_KEYS = ["date", "fbName", "itemName", "orderType"] as const;
+
+/** Claimed-page filters, read from the URL (?type=&from=&to=). */
+const TYPE_FILTERS = ["all", "regular", "pasabuy"] as const;
+type TypeFilter = (typeof TYPE_FILTERS)[number];
+
+/** Calendar day (YYYY-MM-DD) in Manila time, so date filters match what staff see. */
+function manilaDay(value: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
 
 function buildColumns(
   kind: StatusViewKind,
@@ -225,6 +286,7 @@ function buildColumns(
   const orderTypeColumn: Column<StatusRow> = {
     key: "orderType",
     header: "Order Type",
+    headerContent: sortHeader("Order Type", "orderType"),
     className: "whitespace-nowrap",
     render: (row) => row.orderType,
   };
@@ -232,7 +294,13 @@ function buildColumns(
     key: "fbName",
     header: "FB Name",
     headerContent: sortHeader("FB Name", "fbName"),
-    render: (row) => <FbNameInvoiceLink orderId={row.id} fbName={row.fbName} />,
+    className: "min-w-[11rem] whitespace-nowrap",
+    render: (row) => (
+      <div className="flex items-center gap-2">
+        <FbNameInvoiceLink orderId={row.id} fbName={row.fbName} />
+        <OrderSourceTag orderId={row.id} source={row.source} />
+      </div>
+    ),
   };
   const itemColumn: Column<StatusRow> = {
     key: "itemName",
@@ -332,49 +400,159 @@ function buildColumns(
   }
 
   // Booking and Shipped share the tracking layout:
-  // Date, Order Type, FB Name, Code, Item, Amount, DP, Balance, Reference, Tracking No., Status.
-  if (kind === "booked" || kind === "shipped") {
+  const codeColumn: Column<StatusRow> = {
+    key: "codes",
+    header: "Code",
+    render: (row) => <span className="break-words">{row.codes}</span>,
+  };
+  const dpColumn: Column<StatusRow> = {
+    key: "dpPaid",
+    header: "DP",
+    className: "text-right whitespace-nowrap",
+    render: (row) => formatCurrency(row.dpPaid),
+  };
+  const balanceColumn: Column<StatusRow> = {
+    key: "balance",
+    header: "Balance",
+    className: "text-right whitespace-nowrap",
+    render: (row) => (
+      <span className={row.balance > 0 ? "font-semibold text-amber-400" : undefined}>
+        {formatCurrency(row.balance)}
+      </span>
+    ),
+  };
+  const trackingColumn: Column<StatusRow> = {
+    key: "trackingNumber",
+    header: "Tracking No.",
+    render: (row) => (
+      <TrackingNumberCell
+        orderId={row.id}
+        value={row.trackingNumber}
+        editable={kind === "booked" || kind === "shipped" || kind === "branch_collect"}
+      />
+    ),
+  };
+  const shippedDateColumn: Column<StatusRow> = {
+    key: "shippedDate",
+    header: "Date Shipped",
+    className: "whitespace-nowrap",
+    render: (row) => (row.shippedDate ? formatDate(row.shippedDate) : "—"),
+  };
+  const claimCodeColumn: Column<StatusRow> = {
+    key: "claimCode",
+    header: "Claim Code",
+    render: (row) => <ClaimCodeCell orderId={row.id} value={row.claimCode} isCod={row.isCod} />,
+  };
+
+  // Compact layouts (Shipped, Branch Collect) fit one screen: the money goes under the
+  // Amount, and secondary fields move into a Details panel.
+  const amountSummaryColumn: Column<StatusRow> = {
+    key: "amount",
+    header: "Amount",
+    className: "text-right whitespace-nowrap",
+    render: (row) => (
+      <div className="flex flex-col items-end leading-tight">
+        <span>{formatCurrency(row.amount)}</span>
+        <span className="text-[11px] text-muted">DP {formatCurrency(row.dpPaid)}</span>
+        <span className={row.balance > 0 ? "text-[11px] font-semibold text-amber-400" : "text-[11px] text-muted"}>
+          Bal {formatCurrency(row.balance)}
+        </span>
+      </div>
+    ),
+  };
+  const detailsColumn = (sections: (row: StatusRow) => DetailsSection[]): Column<StatusRow> => ({
+    key: "details",
+    header: "Details",
+    className: "whitespace-nowrap",
+    render: (row) => <OrderDetailsPopover title={row.fbName} sections={sections(row)} />,
+  });
+
+  if (kind === "shipped") {
     return [
       dateColumn,
       fbNameColumn,
-      {
-        key: "codes",
-        header: "Code",
-        render: (row) => <span className="break-words">{row.codes}</span>,
-      },
+      itemColumn,
+      amountSummaryColumn,
+      trackingColumn,
+      statusColumn,
+      detailsColumn((row) => [
+        {
+          heading: "Order info",
+          body: (
+            <>
+              <DetailRow label="Code">
+                <span className="break-words">{row.allCodes}</span>
+              </DetailRow>
+              <DetailRow label="Order type">{row.orderType}</DetailRow>
+              <DetailRow label="Reference">
+                <span className="text-muted [overflow-wrap:anywhere]">{row.reference}</span>
+              </DetailRow>
+            </>
+          ),
+        },
+        {
+          heading: "Staff settings",
+          body: (
+            <>
+              <DetailRow label="Source">
+                <OrderSourceSelect orderId={row.id} value={row.source} />
+              </DetailRow>
+              <DetailRow label="Pasabuy COD">
+                <PasabuyCodToggle orderId={row.id} value={row.pasabuyCod} isCod={row.isCod} />
+              </DetailRow>
+              <DetailRow label="Claim code">
+                <ClaimCodeCell orderId={row.id} value={row.claimCode} isCod={row.isCod} />
+              </DetailRow>
+            </>
+          ),
+        },
+      ]),
+      actionColumn,
+    ];
+  }
+
+  // Booking: Date, FB Name, Code, Item, Amount, DP, Balance, Reference, Tracking No., Order Type.
+  if (kind === "booked") {
+    return [
+      dateColumn,
+      fbNameColumn,
+      codeColumn,
       itemColumn,
       amountColumn,
-      {
-        key: "dpPaid",
-        header: "DP",
-        className: "text-right whitespace-nowrap",
-        render: (row) => formatCurrency(row.dpPaid),
-      },
-      {
-        key: "balance",
-        header: "Balance",
-        className: "text-right whitespace-nowrap",
-        render: (row) => (
-          <span className={row.balance > 0 ? "font-semibold text-amber-400" : undefined}>
-            {formatCurrency(row.balance)}
-          </span>
-        ),
-      },
-      {
-        key: "reference",
-        header: "Reference",
-        render: (row) => <span className="text-muted [overflow-wrap:anywhere]">{row.reference}</span>,
-      },
-      {
-        key: "trackingNumber",
-        header: "Tracking No.",
-        render: (row) => (
-          <TrackingNumberCell orderId={row.id} value={row.trackingNumber} editable={kind === "booked" || kind === "shipped"} />
-        ),
-      },
+      dpColumn,
+      balanceColumn,
+      trackingColumn,
       orderTypeColumn,
-      statusColumn,
       actionColumn,
+    ];
+  }
+
+  // Branch Collect (COD only): the claim code stays on the row; Code and Reference go in Details.
+  if (kind === "branch_collect") {
+    return [
+      dateColumn,
+      fbNameColumn,
+      itemColumn,
+      amountSummaryColumn,
+      shippedDateColumn,
+      trackingColumn,
+      statusColumn,
+      claimCodeColumn,
+      detailsColumn((row) => [
+        {
+          heading: "Order info",
+          body: (
+            <>
+              <DetailRow label="Code">
+                <span className="break-words">{row.allCodes}</span>
+              </DetailRow>
+              <DetailRow label="Reference">
+                <span className="text-muted [overflow-wrap:anywhere]">{row.reference}</span>
+              </DetailRow>
+            </>
+          ),
+        },
+      ]),
     ];
   }
 
@@ -465,6 +643,9 @@ const CSV_BASE_HEADERS = [
   "RTO Notes",
   "Reference",
   "Tracking No.",
+  "Source",
+  "Pasabuy COD",
+  "Claim Code",
   "Status",
 ];
 
@@ -487,11 +668,53 @@ function toCsvRow(row: StatusRow): (string | number)[] {
     row.rtoNotes,
     row.reference,
     row.trackingNumber ?? "",
+    row.source === "live" ? "Live" : row.source === "chat" ? "Chat" : "",
+    row.isCod ? (row.pasabuyCod ? "Yes" : "No") : "",
+    row.claimCode ?? "",
     isDeliveryStatus(row.deliveryStatus) ? DELIVERY_STATUS_CONFIG[row.deliveryStatus].label : row.status,
   ];
 }
 
-/** Shared list view for the Paid, Shipped, Claimed, Cancelled, and RTO status pages. */
+/** One labelled line inside an order's Details panel. */
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[6.5rem_1fr] items-center gap-x-3 gap-y-1">
+      <dt className="text-[11px] font-medium text-muted">{label}</dt>
+      <dd className="min-w-0 text-foreground">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * Splits an order into one table row per item. The first row keeps the order's
+ * own cells; the later rows only fill the item columns (see the table below).
+ */
+function expandItemRows(row: StatusRow): StatusRow[] {
+  if (row.items.length <= 1) return [row];
+  return row.items.map((item, index) => ({
+    ...row,
+    rowKey: `${row.id}-${index}`,
+    codes: item.code,
+    itemName: item.name,
+    qty: item.qty,
+  }));
+}
+
+/** Totals for the Claimed summary cards: all rows, Regular, Pasabuy, and fully paid (balance 0). */
+function summarizeClaimed(rows: StatusRow[]) {
+  const sumOf = (list: StatusRow[]) => list.reduce((total, row) => total + row.amount, 0);
+  const regular = rows.filter((row) => row.reservationType === "regular");
+  const pasabuy = rows.filter((row) => row.reservationType === "pasabuy");
+  return {
+    count: rows.length,
+    amount: sumOf(rows),
+    regular: { count: regular.length, amount: sumOf(regular) },
+    pasabuy: { count: pasabuy.length, amount: sumOf(pasabuy) },
+    fullyPaid: rows.filter((row) => row.balance === 0).length,
+  };
+}
+
+/** Shared list view for the Paid, Shipped, Claimed, Cancelled, RTO, and Branch Collect pages. */
 export async function StatusOrdersView({ kind, searchParams }: StatusOrdersViewProps) {
   const meta = META[kind];
   const params = await searchParams;
@@ -502,16 +725,52 @@ export async function StatusOrdersView({ kind, searchParams }: StatusOrdersViewP
   let dbError: { title: string; description: string } | null = null;
 
   try {
-    orders = kind === "paid" ? await fetchPaidPageOrders({ q }) : await fetchOrders({ status: kind, q });
+    if (kind === "paid") {
+      orders = await fetchPaidPageOrders({ q });
+    } else if (kind === "branch_collect") {
+      // COD orders carrying the Branch Collect label. Cancelled ones are not collected.
+      const codOrders = await fetchOrders({ cod: true, deliveryStatus: "branch_collect", q });
+      orders = codOrders.filter((order) => order.status !== "cancelled");
+    } else {
+      orders = await fetchOrders({ status: kind, q });
+    }
   } catch (error) {
     dbError = describeDbError(error);
   }
 
+  // Claimed page filters (Regular / Pasabuy, and a date range). Other pages ignore them.
+  const rawType = typeof params.type === "string" ? params.type : "";
+  const typeFilter: TypeFilter = (TYPE_FILTERS as readonly string[]).includes(rawType)
+    ? (rawType as TypeFilter)
+    : "all";
+  const from = typeof params.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.from) ? params.from : "";
+  const to = typeof params.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.to) ? params.to : "";
+
+  const allRows = (orders ?? []).map((order) => buildRow(order, kind));
+  const visibleRows =
+    kind !== "claimed"
+      ? allRows
+      : allRows.filter((row) => {
+          if (typeFilter !== "all" && row.reservationType !== typeFilter) return false;
+          const day = manilaDay(row.date);
+          if (from && day < from) return false;
+          if (to && day > to) return false;
+          return true;
+        });
+
   const rows = sortRows(
-    (orders ?? []).map((order) => buildRow(order, kind)),
-    (row) => (sort.key === "date" ? row.date : sort.key === "itemName" ? row.itemName : row.fbName),
+    visibleRows,
+    (row) =>
+      sort.key === "date"
+        ? row.date
+        : sort.key === "itemName"
+          ? row.itemName
+          : sort.key === "orderType"
+            ? row.orderType
+            : row.fbName,
     sort.dir
   );
+  const summary = kind === "claimed" ? summarizeClaimed(rows) : null;
   const bulkActions = BULK_ACTIONS[kind];
   const baseColumns = buildColumns(kind, meta.dateLabel, sort);
   const columns: Column<StatusRow>[] =
@@ -527,6 +786,14 @@ export async function StatusOrdersView({ kind, searchParams }: StatusOrdersViewP
           ...baseColumns,
         ]
       : baseColumns;
+
+  // Item columns fill every row; every other column spans the order's item rows,
+  // so one order reads as one row.
+  const ITEM_COLUMN_KEYS = ["codes", "itemName", "qty"];
+  const tableColumns: Column<StatusRow>[] = columns.map((column) =>
+    ITEM_COLUMN_KEYS.includes(column.key) ? column : { ...column, spanGroup: true }
+  );
+  const tableRows = rows.flatMap(expandItemRows);
 
   return (
     <div className="space-y-6">
@@ -545,12 +812,72 @@ export async function StatusOrdersView({ kind, searchParams }: StatusOrdersViewP
         }
       />
 
+      {summary ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Claimed orders"
+            value={summary.count.toLocaleString("en-US")}
+            hint={`${formatCurrency(summary.amount)} total`}
+          />
+          <StatCard
+            label="Regular"
+            value={summary.regular.count.toLocaleString("en-US")}
+            hint={formatCurrency(summary.regular.amount)}
+          />
+          <StatCard
+            label="Pasabuy"
+            value={summary.pasabuy.count.toLocaleString("en-US")}
+            hint={formatCurrency(summary.pasabuy.amount)}
+          />
+          <StatCard
+            label="Fully paid (balance ₱0)"
+            value={summary.fullyPaid.toLocaleString("en-US")}
+            variant="success"
+          />
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>{meta.title}</CardTitle>
           <CardDescription>{q ? `Filtered by “${q}”.` : meta.description}</CardDescription>
         </CardHeader>
         <CardContent className="px-0 pb-0">
+          {kind === "claimed" ? (
+            <form method="get" className="flex flex-wrap items-end gap-3 px-5 pb-4">
+              {q ? <input type="hidden" name="q" value={q} /> : null}
+              <input type="hidden" name="sort" value={sort.key} />
+              <input type="hidden" name="dir" value={sort.dir} />
+              <div>
+                <Label htmlFor="claimed-type">Order type</Label>
+                <select
+                  id="claimed-type"
+                  name="type"
+                  defaultValue={typeFilter}
+                  className="h-10 rounded-lg border border-white/15 bg-background/60 px-3 text-sm text-foreground focus:border-primary"
+                >
+                  <option value="all">All types</option>
+                  <option value="regular">Regular</option>
+                  <option value="pasabuy">Pasabuy</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="claimed-from">From</Label>
+                <Input id="claimed-from" type="date" name="from" defaultValue={from} />
+              </div>
+              <div>
+                <Label htmlFor="claimed-to">To</Label>
+                <Input id="claimed-to" type="date" name="to" defaultValue={to} />
+              </div>
+              <Button type="submit">Apply</Button>
+              <Link
+                href="/orders/claimed"
+                className="inline-flex h-10 items-center rounded-lg px-3 text-sm text-muted transition-colors hover:text-foreground"
+              >
+                Reset
+              </Link>
+            </form>
+          ) : null}
           {dbError ? (
             <div className="px-5 pb-5">
               <ErrorState title={dbError.title} description={dbError.description} />
@@ -559,9 +886,10 @@ export async function StatusOrdersView({ kind, searchParams }: StatusOrdersViewP
             <SelectionProvider ids={rows.map((row) => row.id)}>
               {bulkActions.length > 0 ? <BulkActionBar actions={bulkActions} /> : null}
               <DataTable
-                columns={columns}
-                rows={rows}
-                rowKey={(row) => row.id}
+                columns={tableColumns}
+                rows={tableRows}
+                rowKey={(row) => row.rowKey}
+                groupKey={(row) => row.id}
                 empty={
                   <EmptyState
                     icon={<Package className="h-8 w-8" aria-hidden />}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Ban,
   CheckCircle2,
@@ -31,6 +32,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils/cn";
 import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
+import { WithSourceBadge } from "@/components/orders/order-source-badge";
 
 const MAX_TABLE_ROWS = 8;
 
@@ -66,7 +68,9 @@ const COLUMNS: Column<DownpaymentRow>[] = [
     key: "fb_name",
     header: "FB NAME",
     render: (row) => (
-      <FbNameInvoiceLink orderId={row.order.id} fbName={row.order.customer?.fb_name || "—"} />
+      <WithSourceBadge source={row.order.order_source}>
+        <FbNameInvoiceLink orderId={row.order.id} fbName={row.order.customer?.fb_name || "—"} />
+      </WithSourceBadge>
     ),
   },
   {
@@ -184,8 +188,14 @@ export default async function DashboardPage() {
   let isOwnerOrDev = false;
   let isDeveloper = false;
 
+  // The dashboard is developer-only now. Owners land on All Orders instead.
+  // Kept outside the try block so the redirect is not caught as an error.
+  const { user, profile } = await getCurrentProfile();
+  if (profile?.role === "owner" && !isDeveloperEmail(user.email)) {
+    redirect("/orders");
+  }
+
   try {
-    const { user, profile } = await getCurrentProfile();
     const isDev = isDeveloperEmail(user?.email);
     isDeveloper = profile?.role === "developer" || isDev;
     isOwnerOrDev = profile?.role === "owner" || isDeveloper;

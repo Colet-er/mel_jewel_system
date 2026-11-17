@@ -44,6 +44,8 @@ export interface ReservationFormValues {
   downpayment: string;
   downpaymentMethod: string;
   type: ReservationTypeOption;
+  /** Live / Chat, or "" when not chosen. */
+  orderSource: "" | "live" | "chat";
   // Optional single-item legacy fallback
   itemName?: string;
   itemCode?: string;
@@ -122,6 +124,7 @@ function normalizeInitialValues(initial?: Partial<ReservationFormValues>): Reser
     downpayment: initial?.downpayment || "0",
     downpaymentMethod: initial?.downpaymentMethod || "",
     type: initial?.type || "Regular",
+    orderSource: initial?.orderSource || "",
   };
 }
 
@@ -465,6 +468,7 @@ export function ReservationFormModal({
       downpayment: parseNumber(values.downpayment || "0") || 0,
       downpaymentMethod: values.downpaymentMethod,
       type: values.type.toLowerCase() as ReservationInput["type"],
+      orderSource: values.orderSource || null,
       compileTargetOrderId: compiledOrderId || undefined,
     };
   }
@@ -657,6 +661,22 @@ export function ReservationFormModal({
                     {opt}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor={`${baseId}-source`}>Order Source</Label>
+              <select
+                id={`${baseId}-source`}
+                value={values.orderSource}
+                onChange={(event) =>
+                  update("orderSource", event.target.value as ReservationFormValues["orderSource"])
+                }
+                className={selectClass}
+              >
+                <option value="">Not set</option>
+                <option value="live">Live</option>
+                <option value="chat">Chat</option>
               </select>
             </div>
 

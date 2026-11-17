@@ -23,6 +23,7 @@ export const RESERVATION_IMPORT_HEADERS = [
   "Unit Price",
   "Downpayment",
   "Order Type",
+  "Order Source",
 ] as const;
 
 /**
@@ -47,7 +48,8 @@ type ImportField =
   | "shippingFee"
   | "downpayment"
   | "paymentMethod"
-  | "type";
+  | "type"
+  | "source";
 
 const HEADER_ALIASES: Record<ImportField, string[]> = {
   fbName: ["fb name", "fbname", "facebook name", "facebook", "fb"],
@@ -63,6 +65,7 @@ const HEADER_ALIASES: Record<ImportField, string[]> = {
   downpayment: ["downpayment", "down payment", "dp"],
   paymentMethod: ["payment method", "method", "mode of payment"],
   type: ["order type", "type", "reservation type"],
+  source: ["order source", "source", "miner type"],
 };
 
 function normalizeHeader(value: string): string {
@@ -129,6 +132,14 @@ function normalizeType(raw: string): ReservationType | null {
   if (value === "pasabuy") return "pasabuy";
   if (value === "cod" || value === "cash on delivery") return "cod";
   return null;
+}
+
+/** Live / Chat, or null when blank. Returns undefined for an unrecognised value. */
+function normalizeSource(raw: string): "live" | "chat" | null | undefined {
+  const value = raw.trim().toLowerCase();
+  if (value === "") return null;
+  if (value === "live" || value === "chat") return value;
+  return undefined;
 }
 
 function normalizeMethod(raw: string): string | null {
@@ -228,8 +239,10 @@ export function buildReservationsFromCsv(text: string): ReservationImportResult 
     const downpayment = parseMoney(first("downpayment"), 0);
     const type = normalizeType(first("type"));
     const method = normalizeMethod(first("paymentMethod"));
+    const source = normalizeSource(first("source"));
 
     if (!error && !Number.isFinite(discount)) error = "Discount must be a number.";
+    if (!error && source === undefined) error = `Order Source "${first("source")}" is not valid. Use Live or Chat, or leave it blank.`;
     if (!error && !Number.isFinite(shippingFee)) error = "Shipping Fee must be a number.";
     if (!error && !Number.isFinite(downpayment)) error = "Downpayment must be a number.";
     if (!error && type === null) error = `Order Type "${first("type")}" is not valid. Use Regular, Pasabuy, or COD.`;
@@ -251,6 +264,7 @@ export function buildReservationsFromCsv(text: string): ReservationImportResult 
       downpayment: Number.isFinite(downpayment) ? round2(downpayment) : 0,
       downpaymentMethod: method || (downpayment > 0 ? DEFAULT_IMPORT_PAYMENT_METHOD : ""),
       type: type ?? "regular",
+      orderSource: source ?? null,
     };
 
     if (!error) error = validateReservationInput(input);

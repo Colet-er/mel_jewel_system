@@ -10,6 +10,17 @@ import {
 } from "@/lib/utils/delivery-status";
 import { cn } from "@/lib/utils/cn";
 
+/**
+ * Statuses no longer offered in the picker. RTO is set from the Manage menu,
+ * and Full Paid is already shown by the payment state. Orders already marked
+ * with one of these still show it as their current value.
+ */
+const RETIRED_CHOICES = ["rto", "full_paid"] as const;
+
+function isRetiredChoice(status: string): boolean {
+  return (RETIRED_CHOICES as readonly string[]).includes(status);
+}
+
 const chipBase =
   "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide";
 
@@ -69,7 +80,7 @@ export function DeliveryStatusSelect({
         <option value="" className="bg-card text-foreground">
           {current ? "Clear status" : "Set status"}
         </option>
-        {DELIVERY_STATUSES.map((status) => (
+        {DELIVERY_STATUSES.filter((status) => !isRetiredChoice(status) || status === current).map((status) => (
           <option key={status} value={status} className="bg-card text-foreground">
             {DELIVERY_STATUS_CONFIG[status].label}
           </option>

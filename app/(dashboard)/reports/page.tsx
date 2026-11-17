@@ -15,9 +15,10 @@ export const metadata = { title: "Reports" };
 export default async function ReportsPage() {
   const { user, profile } = await getCurrentProfile();
   const isDev = isDeveloperEmail(user?.email);
-  const isOwnerOrDev = profile?.role === "owner" || profile?.role === "developer" || isDev;
+  // Financial reports are developer-only.
+  const isDeveloper = profile?.role === "developer" || isDev;
 
-  if (!isOwnerOrDev) {
+  if (!isDeveloper) {
     notFound();
   }
 

@@ -13,6 +13,7 @@ import { MonthYearFilter } from "@/components/filters/month-year-filter";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatCard } from "@/components/ui/stat-card";
 import { FbNameInvoiceLink } from "@/components/orders/invoice-modal";
+import { WithSourceBadge } from "@/components/orders/order-source-badge";
 import { fetchCollections } from "@/lib/supabase/queries";
 
 export const metadata = { title: "Collections" };
@@ -21,6 +22,7 @@ interface CollectionRow {
   id: string;
   orderId: string | null;
   collectedAt: string;
+  orderSource: "live" | "chat" | null;
   orderStatus: string;
   orderType: string;
   fbName: string;
@@ -41,7 +43,9 @@ const COLUMNS: Column<CollectionRow>[] = [
     header: "FB Name",
     render: (row) =>
       row.orderId ? (
-        <FbNameInvoiceLink orderId={row.orderId} fbName={row.fbName} />
+        <WithSourceBadge source={row.orderSource}>
+          <FbNameInvoiceLink orderId={row.orderId} fbName={row.fbName} />
+        </WithSourceBadge>
       ) : (
         <span className="break-words">{row.fbName}</span>
       ),
@@ -102,6 +106,7 @@ export default async function CollectionsPage({
       id: c.id,
       orderId: c.order?.id ?? null,
       collectedAt: c.collected_at,
+      orderSource: c.order?.order_source ?? null,
       orderStatus: c.order?.status ?? "reserved",
       orderType: c.order ? formatReservationType(c.order.reservation_type) : "—",
       fbName: c.customer?.fb_name || c.order?.customer?.fb_name || "—",

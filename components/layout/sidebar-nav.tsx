@@ -39,10 +39,12 @@ export function SidebarNav({ onNavigate, role, developerAccess, collapsed }: Sid
         const visibleItems = group.items.filter(
           (item) =>
             // Commission & Assistance is no longer part of the owner's account.
+            // Dashboard, Financial Reports and Account Management are developer-only.
             (item.href !== "/commission" || isDeveloper) &&
+            (item.href !== "/dashboard" || isDeveloper) &&
             (item.href !== "/orders/claimed" || isOwnerOrDev) &&
-            (item.href !== "/reports" || isOwnerOrDev) &&
-            (item.href !== "/accounts" || isOwnerOrDev)
+            (item.href !== "/reports" || isDeveloper) &&
+            (item.href !== "/accounts" || isDeveloper)
         );
 
         if (visibleItems.length === 0) {

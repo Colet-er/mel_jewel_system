@@ -17,6 +17,7 @@ import {
   type BulkActionResult,
 } from "@/app/(dashboard)/orders/reserved/actions";
 import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
+import { WithSourceBadge } from "@/components/orders/order-source-badge";
 import { Button } from "@/components/ui/button";
 import { SortHeaderButton } from "@/components/ui/sort-header";
 import { sortRows, type SortDir } from "@/lib/utils/sort";
@@ -59,6 +60,8 @@ export interface ReservedItemRow {
   balance: number;
   status: OrderStatus;
   type: ReservationType;
+  /** Live or Chat, when set. */
+  source?: "live" | "chat" | null;
 }
 
 export interface ReservedSummary {
@@ -120,6 +123,7 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
         : row.type === "cod"
           ? "COD"
           : "Regular",
+    orderSource: row.source ?? "",
   };
 }
 
@@ -342,47 +346,71 @@ export function ReservedItemsTable({ rows, summary, empty }: ReservedItemsTableP
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map(({ row, isSelected }) => (
-                <tr
-                  key={row.id}
-                  className={`border-b border-white/[0.055] transition-colors last:border-0 hover:bg-primary/[0.045] ${
-                    isSelected ? "bg-primary/5" : ""
-                  }`}
-                >
-                  <td className="px-2.5 py-3 sm:px-3 sm:py-3.5">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select reservation for ${row.fbName}`}
-                      checked={isSelected}
-                      onChange={() => toggleOne(row.id)}
-                      className={checkboxClass}
-                    />
-                  </td>
-                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    {formatDate(row.createdAt)}
-                  </td>
-                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <FbNameInvoiceLink orderId={row.id} fbName={row.fbName} />
-                  </td>
-                  <td className="px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <div className="min-w-[6rem] break-words">{row.itemName}</div>
-                  </td>
-                  <td className="px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{row.qty.toLocaleString("en-US")}</td>
-                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.amount)}</td>
-                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.dpPaid)}</td>
-                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.balance)}</td>
-                  <td className="whitespace-nowrap px-2.5 py-3 sm:px-3.5 sm:py-3.5 xl:px-4">
-                    {formatReservationType(row.type)}
-                  </td>
-                  <td className="whitespace-nowrap px-2.5 py-3 text-right sm:px-3.5 sm:py-3.5 xl:px-4">
-                    <ManageMenu
-                      row={row}
-                      disabled={isPending}
-                      onNotice={setNotice}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {visibleRows.flatMap(({ row, isSelected }) => {
+                // One table row per item. The order's own cells span those rows.
+                const itemLines =
+                  row.items && row.items.length > 0
+                    ? row.items.map((item) => ({ name: item.name, quantity: item.quantity }))
+                    : [{ name: row.itemName, quantity: row.qty }];
+                const span = itemLines.length;
+                const rowClass = `transition-colors hover:bg-primary/[0.045] ${isSelected ? "bg-primary/5" : ""}`;
+
+                return itemLines.map((item, index) => {
+                  const first = index === 0;
+                  const spanAttr = first && span > 1 ? { rowSpan: span } : {};
+                  return (
+                    <tr
+                      key={`${row.id}-${index}`}
+                      className={`${rowClass} ${first ? "" : "bg-white/[0.05]"} ${index === span - 1 ? "border-b border-white/[0.055]" : ""}`}
+                    >
+                      {first ? (
+                        <>
+                          <td {...spanAttr} className="px-2.5 py-3 align-middle sm:px-3 sm:py-3.5">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select reservation for ${row.fbName}`}
+                              checked={isSelected}
+                              onChange={() => toggleOne(row.id)}
+                              className={checkboxClass}
+                            />
+                          </td>
+                          <td {...spanAttr} className="whitespace-nowrap px-2.5 py-3 align-middle sm:px-3.5 sm:py-3.5 xl:px-4">
+                            {formatDate(row.createdAt)}
+                          </td>
+                          <td {...spanAttr} className="px-2.5 py-3 align-middle sm:px-3.5 sm:py-3.5 xl:px-4">
+                            <WithSourceBadge source={row.source}>
+                              <FbNameInvoiceLink orderId={row.id} fbName={row.fbName} />
+                            </WithSourceBadge>
+                          </td>
+                        </>
+                      ) : null}
+                      <td className="px-2.5 py-3 align-middle sm:px-3.5 sm:py-3.5 xl:px-4">
+                        <div className="min-w-[6rem] break-words">{item.name}</div>
+                      </td>
+                      <td className="px-2.5 py-3 text-right align-middle sm:px-3.5 sm:py-3.5 xl:px-4">
+                        {item.quantity.toLocaleString("en-US")}
+                      </td>
+                      {first ? (
+                        <>
+                          <td {...spanAttr} className="whitespace-nowrap px-2.5 py-3 text-right align-middle sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.amount)}</td>
+                          <td {...spanAttr} className="whitespace-nowrap px-2.5 py-3 text-right align-middle sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.dpPaid)}</td>
+                          <td {...spanAttr} className="whitespace-nowrap px-2.5 py-3 text-right align-middle sm:px-3.5 sm:py-3.5 xl:px-4">{formatCurrency(row.balance)}</td>
+                          <td {...spanAttr} className="whitespace-nowrap px-2.5 py-3 align-middle sm:px-3.5 sm:py-3.5 xl:px-4">
+                            {formatReservationType(row.type)}
+                          </td>
+                          <td {...spanAttr} className="whitespace-nowrap px-2.5 py-3 text-right align-middle sm:px-3.5 sm:py-3.5 xl:px-4">
+                            <ManageMenu
+                              row={row}
+                              disabled={isPending}
+                              onNotice={setNotice}
+                            />
+                          </td>
+                        </>
+                      ) : null}
+                    </tr>
+                  );
+                });
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t border-white/[0.07] bg-white/[0.02] text-sm font-semibold">

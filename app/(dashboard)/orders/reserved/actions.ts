@@ -416,6 +416,14 @@ export async function createReservation(
     }
 
     const result = data[0] as { order_id: string; order_number: string };
+    if (input.orderSource !== undefined) {
+      // The order already exists, so a failure here must not look like a failed create.
+      const { error: sourceError } = await supabase.rpc("set_order_source", {
+        p_order_id: result.order_id,
+        p_source: input.orderSource,
+      });
+      if (sourceError) console.error("Failed to save order source:", sourceError.message);
+    }
     revalidateReservationPaths();
     return { ok: true, orderId: result.order_id, orderNumber: result.order_number };
   } catch (error) {
@@ -518,6 +526,14 @@ export async function updateReservation(
       p_items: itemsPayload,
     });
     if (error) return { ok: false, message: mapRpcError(error) };
+
+    if (input.orderSource !== undefined) {
+      const { error: sourceError } = await supabase.rpc("set_order_source", {
+        p_order_id: orderId,
+        p_source: input.orderSource,
+      });
+      if (sourceError) return { ok: false, message: mapRpcError(sourceError) };
+    }
 
     revalidateReservationPaths();
     return { ok: true };

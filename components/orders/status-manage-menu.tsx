@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -27,7 +27,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { PaymentFormModal } from "@/components/orders/payment-form";
 import { BookOrderDialog } from "@/components/orders/book-order-dialog";
 
-export type StatusViewKind = "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto";
+export type StatusViewKind = "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto" | "branch_collect";
 
 export interface StatusManageRow {
   id: string;
@@ -60,6 +60,29 @@ export function StatusManageMenu({ row, kind, disabled }: StatusManageMenuProps)
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Once the menu is rendered, measure it: open upward when there is no room below
+  // the button, and keep it inside the left and right edges of the window.
+  useLayoutEffect(() => {
+    if (!open || !menuPos || !buttonRef.current || !menuRef.current) return;
+    const margin = 8;
+    const gap = 4;
+    const button = buttonRef.current.getBoundingClientRect();
+    const menu = menuRef.current.getBoundingClientRect();
+
+    let top = menuPos.top;
+    if (top + menu.height > window.innerHeight - margin) {
+      top = Math.max(margin, button.top - menu.height - gap);
+    }
+    const left = Math.min(
+      Math.max(margin, menuPos.left),
+      window.innerWidth - menu.width - margin
+    );
+
+    if (top !== menuPos.top || left !== menuPos.left) {
+      setMenuPos({ top, left });
+    }
+  }, [open, menuPos]);
 
   useEffect(() => {
     if (!open) return;

@@ -7,7 +7,7 @@ import {
 } from "@/lib/utils/reservation-import";
 import { buildCsv } from "@/lib/utils/csv";
 
-// Template order: FB Name, Item Description, Code, Qty, Unit Price, Downpayment, Order Type
+// Template order: FB Name, Item Description, Code, Qty, Unit Price, Downpayment, Order Type, Order Source
 const header = RESERVATION_IMPORT_HEADERS.join(",");
 
 describe("parseCsv", () => {
@@ -22,7 +22,7 @@ describe("parseCsv", () => {
 });
 
 describe("reservation import template", () => {
-  it("has exactly the requested columns (incl. Order Type) and no sample data", () => {
+  it("has exactly the requested columns (incl. Order Type and Order Source) and no sample data", () => {
     expect([...RESERVATION_IMPORT_HEADERS]).toEqual([
       "FB Name",
       "Item Description",
@@ -31,6 +31,7 @@ describe("reservation import template", () => {
       "Unit Price",
       "Downpayment",
       "Order Type",
+      "Order Source",
     ]);
     const csv = buildCsv([...RESERVATION_IMPORT_HEADERS], []);
     expect(parseCsv(csv)).toHaveLength(1);
@@ -65,6 +66,23 @@ describe("buildReservationsFromCsv", () => {
     expect(ana.input.type).toBe("cod");
     expect(ana.input.downpayment).toBe(0);
     expect(ana.input.downpaymentMethod).toBe("");
+  });
+
+  it("reads Order Source (Live / Chat), leaves it null when blank, and rejects other values", () => {
+    const csv = [
+      header,
+      "Live Lady,Ring,,1,100,,,Live",
+      "Chat Chris,Ring,,1,100,,,chat",
+      "Plain Pat,Ring,,1,100,,,",
+      "Bad Source,Ring,,1,100,,,Facebook",
+    ].join("\n");
+    const byName = Object.fromEntries(
+      buildReservationsFromCsv(csv).reservations.map((r) => [r.fbName, r])
+    );
+    expect(byName["Live Lady"].input.orderSource).toBe("live");
+    expect(byName["Chat Chris"].input.orderSource).toBe("chat");
+    expect(byName["Plain Pat"].input.orderSource).toBeNull();
+    expect(byName["Bad Source"].error).toMatch(/Order Source "Facebook" is not valid/);
   });
 
   it("accepts peso-formatted prices and a blank Qty as 1", () => {

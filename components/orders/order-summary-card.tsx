@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { BookOrderButton, ShipOrderButton } from "@/components/orders/ship-order-button";
 import { PaymentFormModal } from "@/components/orders/payment-form";
 import { PaymentEntryActions } from "@/components/orders/payment-entry-actions";
+import { WithSourceBadge } from "@/components/orders/order-source-badge";
 
 export function OrderSummaryCard({ order }: { order: Order }) {
   const router = useRouter();
@@ -91,7 +92,9 @@ export function OrderSummaryCard({ order }: { order: Order }) {
             <p className="text-sm text-muted">Customer</p>
             <p className="mt-1 font-medium">{order.customer?.name ?? "—"}</p>
             {order.customer?.fb_name && (
-              <p className="text-sm text-muted">FB: {order.customer.fb_name}</p>
+              <WithSourceBadge source={order.order_source}>
+                <span className="text-sm text-muted">FB: {order.customer.fb_name}</span>
+              </WithSourceBadge>
             )}
             {order.customer?.phone && (
               <p className="text-sm text-muted">{order.customer.phone}</p>

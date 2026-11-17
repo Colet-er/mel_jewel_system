@@ -24,6 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Paid", href: "/orders/paid", icon: "badge-check" },
       { label: "Booking", href: "/orders/booking", icon: "clipboard-list" },
       { label: "Shipped", href: "/orders/shipped", icon: "truck" },
+      { label: "Branch Collect", href: "/orders/branch-collect", icon: "map-pin" },
       { label: "Claimed", href: "/orders/claimed", icon: "check-circle-2" },
       { label: "Cancelled", href: "/orders/cancelled", icon: "x-circle" },
       { label: "RTO", href: "/orders/rto", icon: "rotate-ccw" },

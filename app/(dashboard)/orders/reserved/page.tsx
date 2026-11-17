@@ -72,6 +72,7 @@ function buildRow(order: Order): ReservedItemRow {
     balance: paymentSummary.remainingBalance,
     status: order.status,
     type: order.reservation_type ?? "regular",
+    source: order.order_source ?? null,
   };
 }
 
