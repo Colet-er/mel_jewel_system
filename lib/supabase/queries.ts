@@ -10,7 +10,7 @@ export interface OrdersFilter {
   year?: number;
   q?: string;
   limit?: number;
-  /** Only COD orders (reservation_type = 'cod'). */
+  /** Only COD orders (Regular COD and Pasabuy COD). */
   cod?: boolean;
   /** Only orders with this courier/delivery label. */
   deliveryStatus?: string;
@@ -115,7 +115,6 @@ const ORDER_SELECT = `
   rto_reason,
   rto_notes,
   order_source,
-  is_pasabuy_cod,
   claim_code,
   notes,
   created_at,
@@ -141,7 +140,7 @@ export async function fetchOrders(filter: OrdersFilter = {}): Promise<Order[]> {
   }
 
   if (filter.cod) {
-    query = query.eq("reservation_type", "cod");
+    query = query.in("reservation_type", ["cod", "pasabuy_cod"]);
   }
 
   if (filter.deliveryStatus) {

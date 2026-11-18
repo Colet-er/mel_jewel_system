@@ -176,8 +176,9 @@ export function InvoiceView({
           {(
             [
               { value: "regular", label: "Regular" },
+              { value: "cod", label: "Regular COD" },
               { value: "pasabuy", label: "Pasabuy" },
-              { value: "cod", label: "COD" },
+              { value: "pasabuy_cod", label: "Pasabuy COD" },
             ] as const
           ).map((t) => (
             <button

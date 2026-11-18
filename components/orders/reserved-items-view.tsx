@@ -18,6 +18,7 @@ import {
 } from "@/app/(dashboard)/orders/reserved/actions";
 import { formatCurrency, formatDate, formatReservationType } from "@/lib/utils/format";
 import { WithSourceBadge } from "@/components/orders/order-source-badge";
+import { dbTypeToForm } from "@/lib/utils/reservation-type";
 import { Button } from "@/components/ui/button";
 import { SortHeaderButton } from "@/components/ui/sort-header";
 import { sortRows, type SortDir } from "@/lib/utils/sort";
@@ -117,12 +118,7 @@ function toFormValues(row: ReservedItemRow): ReservationFormValues {
     shippingFee: String(row.shippingFee ?? 0),
     downpayment: String(row.dpPaid),
     downpaymentMethod: "",
-    type:
-      row.type === "pasabuy"
-        ? "Pasabuy"
-        : row.type === "cod"
-          ? "COD"
-          : "Regular",
+    type: dbTypeToForm(row.type),
     orderSource: row.source ?? "",
   };
 }

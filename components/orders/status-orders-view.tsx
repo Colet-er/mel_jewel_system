@@ -27,7 +27,8 @@ import {
 } from "@/components/orders/bulk-selection";
 import { DELIVERY_STATUS_CONFIG, isDeliveryStatus, type DeliveryStatus } from "@/lib/utils/delivery-status";
 import { TrackingNumberCell } from "@/components/orders/tracking-number-cell";
-import { ClaimCodeCell, OrderSourceSelect, OrderSourceTag, PasabuyCodToggle } from "@/components/orders/order-field-cells";
+import { ClaimCodeCell, OrderSourceSelect, OrderSourceTag } from "@/components/orders/order-field-cells";
+import { isCodType, isPasabuyType } from "@/lib/utils/reservation-type";
 import { OrderDetailsPopover, type DetailsSection } from "@/components/orders/order-details-popover";
 import { StatCard } from "@/components/ui/stat-card";
 
@@ -52,11 +53,10 @@ interface StatusRow {
   deliveryStatus: string | null;
   /** Date Shipped (shipped_at). Shown on the Branch Collect page. */
   shippedDate: string | null;
-  /** Raw reservation type ("regular" | "pasabuy" | "cod") for filtering and sorting. */
+  /** Raw reservation type (regular / cod / pasabuy / pasabuy_cod) for filtering and sorting. */
   reservationType: string | null;
   isCod: boolean;
   source: "live" | "chat" | null;
-  pasabuyCod: boolean;
   claimCode: string | null;
   phone: string;
   address: string;
@@ -202,9 +202,8 @@ function buildRow(order: Order, kind: StatusViewKind): StatusRow {
     deliveryStatus: order.delivery_status ?? null,
     shippedDate: order.shipped_at ?? null,
     reservationType: order.reservation_type ?? null,
-    isCod: order.reservation_type === "cod",
+    isCod: isCodType(order.reservation_type),
     source: order.order_source ?? null,
-    pasabuyCod: Boolean(order.is_pasabuy_cod),
     claimCode: order.claim_code?.trim() || null,
     phone: order.customer?.phone || "—",
     address: order.customer?.address || "—",
@@ -497,9 +496,6 @@ function buildColumns(
               <DetailRow label="Source">
                 <OrderSourceSelect orderId={row.id} value={row.source} />
               </DetailRow>
-              <DetailRow label="Pasabuy COD">
-                <PasabuyCodToggle orderId={row.id} value={row.pasabuyCod} isCod={row.isCod} />
-              </DetailRow>
               <DetailRow label="Claim code">
                 <ClaimCodeCell orderId={row.id} value={row.claimCode} isCod={row.isCod} />
               </DetailRow>
@@ -644,7 +640,6 @@ const CSV_BASE_HEADERS = [
   "Reference",
   "Tracking No.",
   "Source",
-  "Pasabuy COD",
   "Claim Code",
   "Status",
 ];
@@ -669,7 +664,6 @@ function toCsvRow(row: StatusRow): (string | number)[] {
     row.reference,
     row.trackingNumber ?? "",
     row.source === "live" ? "Live" : row.source === "chat" ? "Chat" : "",
-    row.isCod ? (row.pasabuyCod ? "Yes" : "No") : "",
     row.claimCode ?? "",
     isDeliveryStatus(row.deliveryStatus) ? DELIVERY_STATUS_CONFIG[row.deliveryStatus].label : row.status,
   ];
@@ -704,7 +698,7 @@ function expandItemRows(row: StatusRow): StatusRow[] {
 function summarizeClaimed(rows: StatusRow[]) {
   const sumOf = (list: StatusRow[]) => list.reduce((total, row) => total + row.amount, 0);
   const regular = rows.filter((row) => row.reservationType === "regular");
-  const pasabuy = rows.filter((row) => row.reservationType === "pasabuy");
+  const pasabuy = rows.filter((row) => isPasabuyType(row.reservationType));
   return {
     count: rows.length,
     amount: sumOf(rows),
@@ -751,7 +745,9 @@ export async function StatusOrdersView({ kind, searchParams }: StatusOrdersViewP
     kind !== "claimed"
       ? allRows
       : allRows.filter((row) => {
-          if (typeFilter !== "all" && row.reservationType !== typeFilter) return false;
+          // "Pasabuy" includes Pasabuy COD; "Regular" is only the plain Regular type.
+          if (typeFilter === "pasabuy" && !isPasabuyType(row.reservationType)) return false;
+          if (typeFilter === "regular" && row.reservationType !== "regular") return false;
           const day = manilaDay(row.date);
           if (from && day < from) return false;
           if (to && day > to) return false;

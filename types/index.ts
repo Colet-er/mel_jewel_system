@@ -11,7 +11,7 @@ export interface Profile {
 
 export type OrderStatus = "reserved" | "paid" | "booked" | "shipped" | "claimed" | "cancelled" | "rto";
 
-export type ReservationType = "regular" | "pasabuy" | "cod";
+export type ReservationType = "regular" | "cod" | "pasabuy" | "pasabuy_cod";
 
 export interface Customer {
   id: string;
@@ -143,8 +143,6 @@ export interface Order {
   rto_notes?: string | null;
   /** Where the order was taken (Live or Chat). */
   order_source?: "live" | "chat" | null;
-  /** COD orders only: true when the COD is also a Pasabuy order. */
-  is_pasabuy_cod?: boolean | null;
   /** COD orders only: code needed to claim the COD money. */
   claim_code?: string | null;
   archived_at: string | null;

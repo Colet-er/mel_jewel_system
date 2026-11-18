@@ -130,7 +130,8 @@ function normalizeType(raw: string): ReservationType | null {
   const value = raw.trim().toLowerCase();
   if (value === "" || value === "regular") return "regular";
   if (value === "pasabuy") return "pasabuy";
-  if (value === "cod" || value === "cash on delivery") return "cod";
+  if (value === "pasabuy cod" || value === "pasabuy_cod") return "pasabuy_cod";
+  if (value === "cod" || value === "regular cod" || value === "cash on delivery") return "cod";
   return null;
 }
 
@@ -245,7 +246,7 @@ export function buildReservationsFromCsv(text: string): ReservationImportResult 
     if (!error && source === undefined) error = `Order Source "${first("source")}" is not valid. Use Live or Chat, or leave it blank.`;
     if (!error && !Number.isFinite(shippingFee)) error = "Shipping Fee must be a number.";
     if (!error && !Number.isFinite(downpayment)) error = "Downpayment must be a number.";
-    if (!error && type === null) error = `Order Type "${first("type")}" is not valid. Use Regular, Pasabuy, or COD.`;
+    if (!error && type === null) error = `Order Type "${first("type")}" is not valid. Use Regular, Regular COD, Pasabuy, or Pasabuy COD.`;
     if (!error && method === null) {
       error = `Payment Method "${first("paymentMethod")}" is not valid. Use ${PAYMENT_METHODS.join(", ")}.`;
     }

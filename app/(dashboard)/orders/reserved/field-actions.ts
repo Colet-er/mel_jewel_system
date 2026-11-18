@@ -49,21 +49,6 @@ export async function setOrderSource(
   return { ok: true };
 }
 
-/** Marks (or unmarks) a COD order as Pasabuy. */
-export async function setOrderPasabuyCod(orderId: string, value: boolean): Promise<OrderFieldResult> {
-  if (!UUID_PATTERN.test(orderId)) return { ok: false, message: "Invalid order id." };
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("set_order_pasabuy_cod", {
-    p_order_id: orderId,
-    p_value: value,
-  });
-  if (error) return { ok: false, message: fieldErrorMessage(error, "Could not save the Pasabuy COD flag.") };
-
-  revalidateOrderLists();
-  return { ok: true };
-}
-
 /** Saves (or clears) the COD claim code. Staff type it in; it must be unique. */
 export async function setOrderClaimCode(orderId: string, rawClaimCode: string): Promise<OrderFieldResult> {
   if (!UUID_PATTERN.test(orderId)) return { ok: false, message: "Invalid order id." };

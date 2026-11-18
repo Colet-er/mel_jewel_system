@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, X } from "lucide-react";
 import {
   setOrderClaimCode,
-  setOrderPasabuyCod,
+
   setOrderSource,
 } from "@/app/(dashboard)/orders/reserved/field-actions";
 import { OrderSourceBadge } from "@/components/orders/order-source-badge";
@@ -69,58 +69,6 @@ export function OrderSourceTag({
 }) {
   if (source) return <OrderSourceBadge source={source} />;
   return <OrderSourceSelect orderId={orderId} value={null} />;
-}
-
-/** Yes/No toggle for "COD is also Pasabuy". Only COD orders can be toggled. */
-export function PasabuyCodToggle({
-  orderId,
-  value,
-  isCod,
-}: {
-  orderId: string;
-  value: boolean;
-  isCod: boolean;
-}) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  if (!isCod) return <span className="text-muted">—</span>;
-
-  function toggle() {
-    startTransition(async () => {
-      const result = await setOrderPasabuyCod(orderId, !value);
-      if (result.ok) {
-        setError(null);
-        router.refresh();
-      } else {
-        setError(result.message);
-      }
-    });
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={isPending}
-        aria-pressed={value}
-        className={
-          value
-            ? "rounded-md border border-primary/40 bg-primary/15 px-2 py-0.5 text-xs font-semibold text-pink-light disabled:opacity-50"
-            : "rounded-md border border-white/15 px-2 py-0.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
-        }
-      >
-        {value ? "Yes" : "No"}
-      </button>
-      {error ? (
-        <span role="alert" className="text-[11px] text-danger">
-          {error}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 /** Claim code shown in a table cell. COD orders only; staff type it in inline. */

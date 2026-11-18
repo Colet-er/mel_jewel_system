@@ -15,12 +15,15 @@ import { formatCurrency } from "@/lib/utils/format";
 import { PAYMENT_METHODS } from "@/lib/utils/payment-validation";
 import { createClient } from "@/lib/supabase/client";
 
-export type ReservationTypeOption = "Regular" | "Pasabuy" | "COD";
-export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [
-  "Regular",
-  "Pasabuy",
-  "COD",
-];
+import {
+  RESERVATION_FORM_TYPES,
+  dbTypeToForm,
+  formTypeToDb,
+  type ReservationFormType,
+} from "@/lib/utils/reservation-type";
+
+export type ReservationTypeOption = ReservationFormType;
+export const RESERVATION_TYPE_OPTIONS: ReservationTypeOption[] = [...RESERVATION_FORM_TYPES];
 
 export interface FormLineItem {
   id: string;
@@ -231,9 +234,7 @@ export function ReservationFormModal({
           const totalDp = dpPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
           const dpMethod = dpPayments[0]?.payment_method || null;
 
-          let resType: ReservationTypeOption = "Regular";
-          if (order.reservation_type?.toLowerCase() === "pasabuy") resType = "Pasabuy";
-          if (order.reservation_type?.toLowerCase() === "cod") resType = "COD";
+          const resType: ReservationTypeOption = dbTypeToForm(order.reservation_type);
 
           const mappedItems: FormLineItem[] = orderItems.map((oi, idx) => {
             const prod = Array.isArray(oi.product) ? oi.product[0] : oi.product;
@@ -467,7 +468,7 @@ export function ReservationFormModal({
       shippingFee: parseNumber(values.shippingFee || "0") || 0,
       downpayment: parseNumber(values.downpayment || "0") || 0,
       downpaymentMethod: values.downpaymentMethod,
-      type: values.type.toLowerCase() as ReservationInput["type"],
+      type: formTypeToDb(values.type),
       orderSource: values.orderSource || null,
       compileTargetOrderId: compiledOrderId || undefined,
     };

@@ -1,5 +1,6 @@
 import type { Order } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { isCodType, isPasabuyType } from "@/lib/utils/reservation-type";
 
 /**
  * Single source of truth for invoice templates and payment-message copy.
@@ -77,7 +78,7 @@ function round2(value: number): number {
 
 /** Check if an order is configured as Cash on Delivery */
 export function isCodOrder(order: Order): boolean {
-  if (order.reservation_type === "cod") return true;
+  if (isCodType(order.reservation_type)) return true;
   return (order.payments ?? []).some(
     (p) => p.payment_method?.trim().toUpperCase() === "COD"
   );
@@ -152,7 +153,7 @@ export function getInvoiceTransactionLabel(
   if (isCod) {
     return "COD";
   }
-  if (order.reservation_type === "pasabuy") {
+  if (isPasabuyType(order.reservation_type)) {
     return "PASABUY";
   }
   return "REGULAR";
@@ -203,7 +204,7 @@ export function resolveInvoiceTemplate(order: Order): InvoiceTemplate {
 
   const state = detectPaymentState(summary);
   const type = order.reservation_type ?? "regular";
-  const prefix = type === "pasabuy" ? "pasabuy" : "regular";
+  const prefix = isPasabuyType(type) ? "pasabuy" : "regular";
   if (state === "fully-paid") return `${prefix}-full` as InvoiceTemplate;
   if (state === "partial") return `${prefix}-downpayment` as InvoiceTemplate;
   if (isCod) return "cod";

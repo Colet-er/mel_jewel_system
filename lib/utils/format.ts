@@ -1,3 +1,5 @@
+import { RESERVATION_TYPE_LABELS } from "@/lib/utils/reservation-type";
+
 export function formatCurrency(amount: number, currency = "PHP"): string {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -44,16 +46,10 @@ export function monthName(month: number): string {
   return MONTH_NAMES[Math.min(Math.max(month, 1), 12) - 1];
 }
 
-const RESERVATION_TYPE_LABELS: Record<string, string> = {
-  regular: "Regular",
-  pasabuy: "Pasabuy",
-  cod: "COD",
-};
-
-/** Human label for an order's reservation type (regular/pasabuy/cod). */
+/** Human label for an order's reservation type (regular / cod / pasabuy / pasabuy_cod). */
 export function formatReservationType(
   type: string | null | undefined
 ): string {
-  if (!type) return "Regular";
-  return RESERVATION_TYPE_LABELS[type] ?? type;
+  if (!type) return RESERVATION_TYPE_LABELS.regular;
+  return (RESERVATION_TYPE_LABELS as Record<string, string>)[type] ?? type;
 }

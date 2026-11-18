@@ -1,6 +1,7 @@
 import type { Order } from "@/types";
 import { describeDbError, fetchOrders, hasRecordedPayment } from "@/lib/supabase/queries";
 import { calculatePaymentBalance } from "@/lib/utils/payment-validation";
+import { isCodType } from "@/lib/utils/reservation-type";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -81,7 +82,7 @@ function buildSummary(rows: ReservedItemRow[], amountToPay: number): ReservedSum
     totalReserve: rows.length,
     amountToPay,
     totalDp: rows.reduce((sum, row) => sum + row.dpPaid, 0),
-    totalCod: rows.reduce((sum, row) => sum + (row.type === "cod" ? row.amount : 0), 0),
+    totalCod: rows.reduce((sum, row) => sum + (isCodType(row.type) ? row.amount : 0), 0),
   };
 }
 

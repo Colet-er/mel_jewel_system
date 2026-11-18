@@ -839,12 +839,12 @@ export async function markOrderRto(
 /** Updates the transaction/reservation type (regular / pasabuy / cod) for an order. */
 export async function updateOrderTransactionType(
   orderId: string,
-  type: "regular" | "pasabuy" | "cod"
+  type: "regular" | "cod" | "pasabuy" | "pasabuy_cod"
 ): Promise<{ ok: boolean; message?: string }> {
   if (!UUID_PATTERN.test(orderId)) {
     return { ok: false, message: "Invalid order ID." };
   }
-  if (!["regular", "pasabuy", "cod"].includes(type)) {
+  if (!["regular", "cod", "pasabuy", "pasabuy_cod"].includes(type)) {
     return { ok: false, message: "Invalid transaction type." };
   }
 
